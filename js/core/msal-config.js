@@ -1,35 +1,28 @@
 /**
  * ColloquiTeam · core/msal-config.js
  * -------------------------------------------------------------------
- * Configurazione MSAL.js (auth Azure AD / Microsoft work account).
+ * Configurazione MSAL.js (auth Azure AD).
  *
- * Prima di andare in produzione:
- *   1. Crea un'app registration su https://portal.azure.com
- *      → Azure Active Directory → App registrations → "New registration"
- *      → Name: "ColloquiAreaCcm"
- *      → Supported account types: "Accounts in this organizational directory only" (single tenant)
- *      → Redirect URI: type "Single-page application (SPA)"
- *                      URI:  https://dexccm.github.io/ColloquiAreaCcm/
- *      → AGGIUNGI in seguito anche le redirect URI di test:
- *           http://localhost:5500/
- *           http://127.0.0.1:5500/  (Live Server / serve.bat)
- *   2. Copia l'Application (client) ID e sostituiscilo qui sotto al posto di REPLACE_ME.
- *   3. (Facoltativo) Restringi il login a un solo tenant cambiando
- *      "authority" da "organizations" al GUID del tuo tenant.
+ * App registration:
+ *   - Tenant:     DATAEXPERT (single tenant)
+ *   - Nome app:   ColloquiAreaCcm
+ *   - Redirect:   SPA → https://dexccm.github.io/ColloquiAreaCcm/
  *
- * Note:
- *   - usiamo loginRedirect (non popup) perché alcune policy di sicurezza
- *     interne bloccano i popup
- *   - lo storage del token è in localStorage (sopravvive ai refresh)
- *   - il match utente è applicativo: l'email Microsoft viene cercata su
- *     /users (Firebase) in window.Users.findByEmail
+ * In locale (file:// o localhost) il login Microsoft non funziona perché
+ * il redirectUri è hardcoded sulla produzione: usa `?dev=1` nell'URL per
+ * attivare il mock picker.
+ *
+ * Note tecniche:
+ *   - loginRedirect (non popup) → compatibile con policy aziendali che bloccano i popup
+ *   - cache in localStorage     → la sessione sopravvive ai refresh
+ *   - match utente applicativo  → l'email Microsoft viene cercata su /users in Firebase
  */
 window.MSAL_CONFIG = {
   auth: {
-    clientId: 'REPLACE_ME',                                       // ← TODO: clientId Azure
-    authority: 'https://login.microsoftonline.com/organizations', // work accounts soltanto
-    redirectUri: window.location.origin + window.location.pathname,
-    postLogoutRedirectUri: window.location.origin + window.location.pathname,
+    clientId:    '79c04c42-a91b-4ba3-b8d6-192dedda9537',                                // Dataexpert · ColloquiAreaCcm
+    authority:   'https://login.microsoftonline.com/e5f055d3-14a7-4c84-a94d-b04676abef8e', // single tenant DATAEXPERT
+    redirectUri:           'https://dexccm.github.io/ColloquiAreaCcm/',
+    postLogoutRedirectUri: 'https://dexccm.github.io/ColloquiAreaCcm/',
     navigateToLoginRequestUrl: false
   },
   cache: {
@@ -50,3 +43,4 @@ window.MSAL_CONFIG = {
 
 /** Scope minimi richiesti: solo info profilo (email) */
 window.MSAL_LOGIN_SCOPES = ['openid', 'profile', 'email', 'User.Read'];
+
