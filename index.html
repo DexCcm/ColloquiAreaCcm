@@ -61,8 +61,8 @@
   <!-- Chart.js (UMD) — radar della Ruota delle Performance nella vista Colloquio -->
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-  <!-- MSAL.js v2 (UMD) — login Microsoft / Azure AD -->
-  <script defer src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+  <!-- Auth Microsoft gestita da firebase-auth (vedi js/core/auth.js).
+       MSAL.js non più necessario: usiamo firebase.auth.OAuthProvider('microsoft.com'). -->
 
   <!-- Catena applicativa: defer mantiene l'ordine di esecuzione -->
   <script defer src="js/data/mock-users.js"></script>
@@ -71,7 +71,6 @@
   <script defer src="js/core/storage.js"></script>
   <script defer src="js/core/connection.js"></script>
   <script defer src="js/core/users.js"></script>
-  <script defer src="js/core/msal-config.js"></script>
   <script defer src="js/core/auth.js"></script>
   <script defer src="js/core/router.js"></script>
   <script defer src="js/ui/shell.js"></script>
@@ -91,7 +90,7 @@
     <div class="login-card">
       <img src="assets/logo.svg" alt="ColloquiTeam" class="login-logo" width="96" height="96">
       <div class="login-eyebrow">Colloqui Trimestrali · 2026</div>
-      <div class="login-title">Area CCM - <span class="accent">Colloqui Team</span></div>
+      <div class="login-title">Area CCM -<span class="accent">Colloqui Team</span></div>
       <div class="login-sub">Schede di valutazione · Quadient &amp; Papyrus</div>
 
       <button class="login-real-btn" id="msalLoginBtn">
@@ -125,27 +124,4 @@
 
       <div class="period-picker" id="periodPicker" title="Periodo di riferimento">
         <select id="yearSelect" aria-label="Anno"></select>
-        <select id="quarterSelect" aria-label="Trimestre"></select>
-      </div>
-
-      <div class="save-status" id="saveStatus" style="display:none;">
-        <span class="dot"></span>
-        <span class="label">Tutto salvato</span>
-      </div>
-
-      <div class="fb-status connecting" id="fbStatus" title="Stato connessione Firebase">
-        <span class="fb-dot"></span>
-        <span class="fb-label">Connessione…</span>
-      </div>
-
-      <div class="user-chip" id="userChip"></div>
-      <button class="logout-btn" id="logoutBtn">Logout</button>
-    </header>
-
-    <main class="app-main" id="appMain"></main>
-  </div>
-
-  <div class="toast" id="toast"></div>
-
-</body>
-</html>
+        <select id="quarterSelec
