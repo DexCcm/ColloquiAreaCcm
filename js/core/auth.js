@@ -48,11 +48,18 @@ window.Auth = {
       }
     }
 
-    // 2) Sincronizzo con auth state (sessione cached o cambio tab)
+    // 2) Sincronizzo con auth state. Ignoriamo deliberatamente l'utente
+    //    ANONIMO (boot bridge in connection.js): è solo un permesso minimo
+    //    per leggere /users, non è una vera sessione applicativa.
+    //    Solo l'identità Microsoft (con email) trigghera il bind.
     return new Promise(function(resolve) {
       const unsub = firebase.auth().onAuthStateChanged(async function(fbUser) {
+        if (!fbUser || fbUser.isAnonymous) {
+          unsub();
+          resolve(false);
+          return;
+        }
         unsub();
-        if (!fbUser) { resolve(false); return; }
         const ok = await window.Auth._bindUserFromFirebase(fbUser);
         resolve(ok);
       });
