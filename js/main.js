@@ -1,49 +1,41 @@
 /**
  * ColloquiTeam · main.js
  * -------------------------------------------------------------------
- * Bootstrap dell'applicazione. Eseguito per ultimo nello script-chain
- * grazie a `<script defer>`.
+ * Bootstrap con Firebase Auth come fonte di verità.
  *
  * Sequenza:
- *   1. Bootstrap anonimo Firebase (Connection.init)
- *   2. Carica /users da Firebase (Users.loadAll, con fallback MOCK_USERS)
- *   3. Auth.restoreSession() prima di MSAL (evita redirect inutili)
- *   4. Auth.bootMsal() se non c'è sessione
- *   5. Collega bottone Microsoft
- *   6. (DEV) Mock picker via ?dev=1 in URL o window.DEV_MODE=true
- *   7. Bind logout + hashchange
+ *   1. Firebase up (Connection.init — niente più auth anonima)
+ *   2. Carica /users (loadAll)
+ *   3. DEV mode: restore eventuale sessione mock
+ *   4. PROD: Auth.bootAuth() gestisce redirect Microsoft + sessione cached
+ *   5. Aggancia bottone Microsoft + mostra mock picker in dev
+ *   6. Bind logout + hashchange
  */
 (async function init() {
   await window.Connection.init();
   await window.Users.loadAll();
 
-  if (window.Auth.restoreSession()) {
+  const params  = new URLSearchParams(location.search);
+  const devMode = window.DEV_MODE === true || params.get('dev') === '1';
+
+  // DEV: tenta restore mock prima di toccare Firebase Auth
+  if (devMode && window.Auth.restoreSession()) {
     window.showApp();
   } else {
-    await window.Auth.bootMsal();
+    // PROD: lascia che Firebase Auth dica chi sei
+    await window.Auth.bootAuth();
   }
 
   // === Bottone Microsoft ===
   const msalBtn = document.getElementById('msalLoginBtn');
   if (msalBtn) {
-    const clientIdReady =
-      window.MSAL_CONFIG && window.MSAL_CONFIG.auth.clientId !== 'REPLACE_ME';
-    if (clientIdReady) {
-      msalBtn.disabled = false;
-      msalBtn.removeAttribute('title');
-      msalBtn.textContent = '🔒 Accedi con Microsoft';
-      msalBtn.onclick = () => window.Auth.loginWithMicrosoft();
-    } else {
-      msalBtn.disabled = true;
-      msalBtn.title = 'Imposta il clientId Azure in js/core/msal-config.js';
-      msalBtn.textContent = '🔒 Accedi con Microsoft (config Azure mancante)';
-    }
+    msalBtn.disabled = false;
+    msalBtn.removeAttribute('title');
+    msalBtn.textContent = '🔒 Accedi con Microsoft';
+    msalBtn.onclick = () => window.Auth.loginWithMicrosoft();
   }
 
-  // === DEV mode ===
-  const params = new URLSearchParams(location.search);
-  const devMode = window.DEV_MODE === true || params.get('dev') === '1';
-
+  // === DEV mock picker ===
   const mockHost  = document.getElementById('mockUsersList');
   const mockBlock = document.querySelector('.login-mock-block');
   if (devMode && mockHost) {
