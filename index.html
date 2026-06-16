@@ -124,4 +124,27 @@
 
       <div class="period-picker" id="periodPicker" title="Periodo di riferimento">
         <select id="yearSelect" aria-label="Anno"></select>
-        <select id="quarterSelec
+        <select id="quarterSelect" aria-label="Trimestre"></select>
+      </div>
+
+      <div class="save-status" id="saveStatus" style="display:none;">
+        <span class="dot"></span>
+        <span class="label">Tutto salvato</span>
+      </div>
+
+      <div class="fb-status connecting" id="fbStatus" title="Stato connessione Firebase">
+        <span class="fb-dot"></span>
+        <span class="fb-label">Connessione…</span>
+      </div>
+
+      <div class="user-chip" id="userChip"></div>
+      <button class="logout-btn" id="logoutBtn">Logout</button>
+    </header>
+
+    <main class="app-main" id="appMain"></main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+</body>
+</html>
