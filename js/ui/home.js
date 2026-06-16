@@ -32,10 +32,18 @@ window.renderHome = async function () {
           '<a href="#/autoval" class="btn-secondary">Apri form &rarr;</a>' +
         '</div>' +
       '</div>' +
-      (u.area === 'all' ? '<div id="debugPanelHost"></div>' : '');
+      (u.area === 'all' && _isDevMode() ? '<div id="debugPanelHost"></div>' : '');
 
-    if (u.area === 'all') window.renderDebugPanel();
+    // Pannello diagnostico: SOLO se aperto con ?dev=1 o window.DEV_MODE=true.
+    // In produzione resta nascosto agli admin per non mostrare path Firebase / pulsanti distruttivi.
+    if (u.area === 'all' && _isDevMode()) window.renderDebugPanel();
     return;
+  }
+
+  function _isDevMode() {
+    if (window.DEV_MODE === true) return true;
+    try { return new URLSearchParams(location.search).get('dev') === '1'; }
+    catch (_) { return false; }
   }
 
   // ─ user branch ─
@@ -75,13 +83,11 @@ window.renderHome = async function () {
       '<div class="card home-card">' +
         '<span class="scheda-stato vuota">info</span>' +
         '<h2>Come funziona</h2>' +
-        '<p>La scheda ha 7 sezioni: Soft Skills, Hard Skills, KPI, Obiettivi, Proposte, Richieste e la Ruota delle Performance. Compila quando vuoi, anche in più sessioni: tutto si salva.</p>' +
+        '<ul class="home-list">' +
+          '<li>Compila la scheda autovalutazione del trimestre.</li>' +
+          '<li>Il responsabile compila a sua volta la sua scheda.</li>' +
+          '<li>Durante il colloquio confronterete le due viste insieme.</li>' +
+        '</ul>' +
       '</div>' +
     '</div>';
-};
-
-window.setQuarter = function (q) {
-  window.state.quarter = q;
-  if (typeof window.renderPeriodPicker === 'function') window.renderPeriodPicker();
-  window.Router.go();
 };
