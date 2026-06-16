@@ -1,0 +1,39 @@
+/* ColloquiTeam · tokens.css
+   Design tokens: palette V3 ad alto contrasto, shadow, radius, reset base. */
+
+:root {
+  --paper:        #FBF7EE;
+  --paper-2:      #FEFCF7;
+  --ink:          #1A1A18;
+  --ink-soft:     #4A4538;
+  --ink-mute:     #8C8576;
+  --rule:         #8C8576;
+  --rule-soft:    #D9CFB8;
+
+  --accent:       #8B3A1A;
+  --accent-soft:  #F1D9CC;
+  --accent-hover: #6B2A10;
+
+  --sage:         #3D6B52;
+  --sage-soft:    #D9E8DC;
+
+  --amber:        #B59A65;
+  --highlight:    #FBE5D6;
+
+  /* Rating colors (Carente → Punto di forza) */
+  --rating-1:     #B85A3D;
+  --rating-2:     #C9824B;
+  --rating-3:     #B59A65;
+  --rating-4:     #6B8F73;
+  --rating-5:     #3D6B52;
+
+  --shadow-sm:    0 2px 8px rgba(26,26,24,.06);
+  --shadow-md:    0 6px 20px rgba(26,26,24,.10);
+  --shadow-lg:    0 14px 40px rgba(26,26,24,.16);
+
+  --radius:       10px;
+  --radius-sm:    6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }

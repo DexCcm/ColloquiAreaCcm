@@ -1,0 +1,138 @@
+/* ColloquiTeam · components.css
+   Bottoni, modale conferma, toast, placeholder, debug panel. */
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn-primary:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-secondary {
+  background: white;
+  color: var(--ink);
+  border: 1px solid var(--rule-soft);
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-secondary:hover { background: var(--paper); border-color: var(--accent); color: var(--accent); }
+.btn-secondary:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Modal conferma ── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(26,26,24,.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-card {
+  background: white;
+  border-radius: 16px;
+  max-width: 460px;
+  width: 100%;
+  padding: 28px;
+  box-shadow: var(--shadow-lg);
+}
+.modal-card h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.modal-card p { color: var(--ink-soft); margin-bottom: 20px; font-size: 14px; line-height: 1.55; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ── Placeholder page ── */
+.placeholder-page {
+  text-align: center;
+  padding: 60px 30px;
+  color: var(--ink-mute);
+}
+.placeholder-page h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 22px;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: white;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 300;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transition: opacity .25s ease, transform .25s ease;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+/* ── Debug panel (admin/all) ── */
+.debug-panel {
+  margin-top: 24px;
+  background: #1A1A18;
+  color: #E5DDC8;
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.debug-panel h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 13px;
+  color: var(--accent-soft);
+  font-weight: 700;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.debug-panel pre {
+  background: rgba(255,255,255,.05);
+  padding: 10px 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 8px 0;
+  font-size: 11px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.debug-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.debug-btn {
+  background: #2A2A28;
+  color: #E5DDC8;
+  border: 1px solid #3A3A35;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.debug-btn:hover { background: var(--accent); border-color: var(--accent); color: white; }
+.debug-btn.danger:hover { background: #b91c1c; border-color: #b91c1c; }

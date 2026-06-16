@@ -1,0 +1,2010 @@
+<!DOCTYPE html>
+<!--
+  ColloquiTeam · SPA per schede colloquio trimestrali
+  ============================================================
+  Sostituisce le 4 schede Word (Autoval/Val × Quadient/Papyrus).
+  Deploy target: https://dexccm.github.io/ColloquiTeam/
+
+  Stato V0.1 (skeleton testabile in locale):
+    - Mock auth con 4 utenti precaricati (sostituire con MSAL.js)
+    - Persistenza localStorage (sostituire con Firebase RTDB)
+    - Routing hash-based per ruolo
+    - Form Autovalutazione Quadient completo (7 sezioni)
+    - Stepper laterale con scroll-spy
+    - Palette V3 ad alto contrasto
+
+  Tutti i punti da sostituire in V0.2 sono marcati con  ⚠ TODO[V0.2] ⚠
+-->
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ColloquiTeam · Schede trimestrali</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Promise risolta dallo script type=module di Firebase (necessario perché module è async) -->
+<script>
+  window.firebaseReady = new Promise((resolve) => { window._firebaseReadyResolve = resolve; });
+</script>
+
+<!-- ⚠ TODO[V0.3] ⚠ : MSAL viene attivato quando colleghiamo Azure AD
+<script defer src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+-->
+
+<!-- Firebase SDK v9 modular — progetto: area-ccm-colloqui-personali -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
+  import { getDatabase, ref, set, get, onValue, update, remove, serverTimestamp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js';
+  import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCIbB3mrTPjtXSypMTzx3StVTIoaBefyEA",
+    authDomain: "area-ccm-colloqui-personali.firebaseapp.com",
+    databaseURL: "https://area-ccm-colloqui-personali-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "area-ccm-colloqui-personali",
+    storageBucket: "area-ccm-colloqui-personali.firebasestorage.app",
+    messagingSenderId: "43050438178",
+    appId: "1:43050438178:web:d97be4c717a4fdcebd847b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const database = getDatabase(app);
+  const auth = getAuth(app);
+
+  // Esposizione globale (consumata dallo script applicativo non-modulare)
+  window.firebaseDB = {
+    ref: (p) => ref(database, p),
+    set, get, onValue, update, remove, serverTimestamp
+  };
+  window.firebaseAuth = {
+    signInAnonymously: () => signInAnonymously(auth),
+    onAuthStateChanged: (cb) => onAuthStateChanged(auth, cb),
+    auth
+  };
+
+  // Promise risolta quando il modulo è caricato — usata da Storage.* per attendere readiness
+  window._firebaseReadyResolve();
+  console.log('[Firebase] SDK caricato, progetto:', firebaseConfig.projectId);
+</script>
+
+<style>
+/* ================================================================
+   PALETTE V3 AD ALTO CONTRASTO
+   ================================================================ */
+:root {
+  --paper:        #FBF7EE;
+  --paper-2:      #FEFCF7;
+  --ink:          #1A1A18;
+  --ink-soft:     #4A4538;
+  --ink-mute:     #8C8576;
+  --rule:         #8C8576;
+  --rule-soft:    #D9CFB8;
+
+  --accent:       #8B3A1A;
+  --accent-soft:  #F1D9CC;
+  --accent-hover: #6B2A10;
+
+  --sage:         #3D6B52;
+  --sage-soft:    #D9E8DC;
+
+  --amber:        #B59A65;
+  --highlight:    #FBE5D6;
+
+  /* Rating colors (Carente → Punto di forza) */
+  --rating-1:     #B85A3D;
+  --rating-2:     #C9824B;
+  --rating-3:     #B59A65;
+  --rating-4:     #6B8F73;
+  --rating-5:     #3D6B52;
+
+  --shadow-sm:    0 2px 8px rgba(26,26,24,.06);
+  --shadow-md:    0 6px 20px rgba(26,26,24,.10);
+  --shadow-lg:    0 14px 40px rgba(26,26,24,.16);
+
+  --radius:       10px;
+  --radius-sm:    6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: #fff;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; }
+
+/* ================================================================
+   LOGIN SCREEN (mock — V0.2 sostituisce con MSAL loginRedirect)
+   ================================================================ */
+#login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--paper) 0%, #EFE6D2 100%);
+  padding: 20px;
+}
+.login-card {
+  background: white;
+  border-radius: 20px;
+  padding: 48px 44px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+.login-eyebrow {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 11px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.login-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -.02em;
+  margin-bottom: 8px;
+}
+.login-title .accent { color: var(--accent); }
+.login-sub {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-bottom: 28px;
+}
+.login-real-btn {
+  width: 100%;
+  padding: 14px 22px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s ease;
+  margin-bottom: 22px;
+}
+.login-real-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.login-divider {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .15em;
+  color: var(--ink-mute);
+  margin: 16px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.mock-users {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mock-btn {
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all .15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mock-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.mock-btn b { color: var(--ink); font-size: 14px; font-weight: 600; }
+.mock-btn small { color: var(--ink-mute); font-size: 11px; letter-spacing: .04em; }
+
+/* ================================================================
+   APP SHELL
+   ================================================================ */
+#app-shell { min-height: 100vh; background: white; }
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: white;
+  border-bottom: 1px solid var(--rule-soft);
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.brand {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--ink);
+  text-decoration: none;
+  margin-right: 12px;
+}
+.brand .accent { color: var(--accent); }
+.header-nav {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+.nav-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: all .15s ease;
+  letter-spacing: .02em;
+}
+.nav-link:hover { background: var(--paper); color: var(--accent); }
+.nav-link.active { background: var(--accent-soft); color: var(--accent); }
+
+.save-status {
+  font-size: 12px;
+  color: var(--ink-mute);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.save-status .dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--sage);
+  transition: background .2s;
+}
+.save-status.dirty .dot { background: var(--amber); }
+.save-status.saving .dot { background: var(--accent); animation: pulse 1s ease infinite; }
+@keyframes pulse { 50% { opacity: .4; } }
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 14px;
+  background: var(--paper);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.role-badge {
+  font-size: 10px;
+  letter-spacing: .1em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.role-badge.admin { background: var(--sage); color: white; }
+.role-badge.user { background: var(--accent-soft); color: var(--accent); }
+.logout-btn {
+  background: white;
+  border: 1px solid var(--rule-soft);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-weight: 600;
+}
+.logout-btn:hover { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+
+/* ================================================================
+   MAIN LAYOUT
+   ================================================================ */
+.app-main { max-width: 1280px; margin: 0 auto; padding: 28px; }
+
+/* ── Generic card ── */
+.card {
+  background: white;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius);
+  padding: 24px 26px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Page header (titolo grosso) ── */
+.page-head {
+  margin-bottom: 28px;
+}
+.page-eyebrow {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 11px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.page-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--ink);
+}
+.page-title .accent { color: var(--accent); }
+.page-sub {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+  font-style: italic;
+}
+
+/* ================================================================
+   HOME (user)
+   ================================================================ */
+.home-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 22px; }
+.home-card .scheda-stato {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+.scheda-stato.bozza { background: var(--amber); color: white; }
+.scheda-stato.inviata { background: var(--sage); color: white; }
+.scheda-stato.vuota { background: var(--rule-soft); color: var(--ink-soft); }
+
+.home-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 14px 0 8px;
+  letter-spacing: -.01em;
+}
+.home-card p { color: var(--ink-soft); font-size: 14px; margin-bottom: 18px; }
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn-secondary {
+  background: white;
+  color: var(--ink);
+  border: 1px solid var(--rule-soft);
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-secondary:hover { background: var(--paper); border-color: var(--accent); color: var(--accent); }
+
+/* Trimestre picker */
+.trim-picker {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0 18px;
+}
+.trim-btn {
+  flex: 1;
+  background: white;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.trim-btn:hover { border-color: var(--accent); color: var(--accent); }
+.trim-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* ================================================================
+   AUTOVAL LAYOUT (stepper + form)
+   ================================================================ */
+.autoval-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+/* ── Stepper ── */
+.stepper {
+  position: sticky;
+  top: 84px;
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius);
+  padding: 14px 12px;
+}
+.stepper-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 11px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  font-weight: 700;
+  padding: 6px 12px 12px;
+  border-bottom: 1px solid var(--rule-soft);
+  margin-bottom: 8px;
+}
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-weight: 500;
+  text-decoration: none;
+  transition: all .15s ease;
+  margin-bottom: 2px;
+  border-left: 3px solid transparent;
+}
+.step-item:hover { background: white; color: var(--ink); }
+.step-item.active {
+  background: white;
+  color: var(--accent);
+  font-weight: 700;
+  border-left-color: var(--accent);
+}
+.step-num {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--accent);
+  min-width: 22px;
+}
+.step-item.active .step-num { color: var(--accent); }
+.step-tick {
+  margin-left: auto;
+  color: var(--sage);
+  font-weight: 700;
+  font-size: 14px;
+  display: none;
+}
+.step-item.completed .step-tick { display: inline; }
+
+/* ================================================================
+   FORM SECTIONS
+   ================================================================ */
+.form-section {
+  background: white;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius);
+  padding: 30px 32px;
+  margin-bottom: 22px;
+  scroll-margin-top: 84px;
+}
+
+.section-head {
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.section-num {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 28px;
+  color: var(--accent);
+  letter-spacing: -.02em;
+}
+.section-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  display: inline-block;
+  margin-left: 8px;
+  letter-spacing: -.01em;
+}
+.section-desc {
+  font-size: 14px;
+  color: var(--ink-soft);
+  font-style: italic;
+  margin-top: 6px;
+}
+
+/* ── Rating table (Carente / Acerbo / Adeguato / Solido / Punto di forza) ── */
+.rating-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.rating-table thead th {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--ink-mute);
+  padding: 10px 6px 12px;
+  text-align: center;
+  border-bottom: 1.5px solid var(--rule-soft);
+  vertical-align: bottom;
+}
+.rating-table thead th:first-child { text-align: left; padding-left: 4px; }
+.rating-table tbody td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--rule-soft);
+  vertical-align: middle;
+}
+.rating-table tbody tr:last-child td { border-bottom: none; }
+.rating-table tbody td:first-child {
+  font-size: 13.5px;
+  color: var(--ink);
+  font-weight: 500;
+  padding-left: 4px;
+  padding-right: 14px;
+}
+.rating-cell { text-align: center; width: 80px; }
+
+/* Custom radio "tile" */
+.rating-cell input { position: absolute; opacity: 0; pointer-events: none; }
+.rating-cell label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  border: 1.5px solid var(--rule);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .12s ease;
+  background: white;
+}
+.rating-cell label:hover { border-color: var(--accent); transform: scale(1.05); }
+.rating-cell input:checked + label {
+  background: var(--rating);
+  border-color: var(--rating);
+  color: white;
+}
+.rating-cell input:checked + label::after {
+  content: "✓";
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+}
+.rating-cell[data-rating="1"] input:checked + label { --rating: var(--rating-1); background: var(--rating-1); border-color: var(--rating-1); }
+.rating-cell[data-rating="2"] input:checked + label { --rating: var(--rating-2); background: var(--rating-2); border-color: var(--rating-2); }
+.rating-cell[data-rating="3"] input:checked + label { --rating: var(--rating-3); background: var(--rating-3); border-color: var(--rating-3); }
+.rating-cell[data-rating="4"] input:checked + label { --rating: var(--rating-4); background: var(--rating-4); border-color: var(--rating-4); }
+.rating-cell[data-rating="5"] input:checked + label { --rating: var(--rating-5); background: var(--rating-5); border-color: var(--rating-5); }
+
+/* ── Header row labels (colorate) ── */
+.rating-table thead th.col-1 { color: var(--rating-1); }
+.rating-table thead th.col-2 { color: var(--rating-2); }
+.rating-table thead th.col-3 { color: var(--rating-3); }
+.rating-table thead th.col-4 { color: var(--rating-4); }
+.rating-table thead th.col-5 { color: var(--rating-5); }
+
+/* ── Textarea / text input ── */
+.field-label {
+  display: block;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  margin: 22px 0 4px;
+}
+.field-hint {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-mute);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+.field-textarea {
+  width: 100%;
+  min-height: 90px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper-2);
+  border: 1px solid var(--rule-soft);
+  border-radius: 8px;
+  padding: 12px 14px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.field-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  background: white;
+}
+
+/* ── Ruota (8 macro-aree × 11 valori 0-10) ── */
+.ruota-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.ruota-table thead th {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--accent);
+  padding: 8px 4px;
+  text-align: center;
+  border-bottom: 1.5px solid var(--rule-soft);
+}
+.ruota-table thead th:first-child {
+  text-align: left;
+  padding-left: 6px;
+  color: var(--ink-mute);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-size: 10px;
+}
+.ruota-table tbody td {
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--rule-soft);
+  text-align: center;
+}
+.ruota-table tbody tr:last-child td { border-bottom: none; }
+.ruota-table tbody td:first-child {
+  text-align: left;
+  padding: 10px 6px;
+  width: 230px;
+}
+.macro-name b {
+  display: block;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.macro-name span {
+  display: block;
+  font-size: 11.5px;
+  color: var(--ink-mute);
+  font-style: italic;
+  margin-top: 2px;
+  line-height: 1.3;
+}
+.ruota-radio { position: absolute; opacity: 0; pointer-events: none; }
+.ruota-radio + label {
+  display: inline-block;
+  width: 18px; height: 18px;
+  border: 1.5px solid var(--rule);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all .12s ease;
+  background: white;
+}
+.ruota-radio + label:hover { border-color: var(--accent); transform: scale(1.15); }
+.ruota-radio:checked + label {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* ── Submit bar (bottom sticky) ── */
+.submit-bar {
+  position: sticky;
+  bottom: 0;
+  margin: 22px -32px -30px;
+  padding: 18px 32px;
+  background: white;
+  border-top: 1px solid var(--rule-soft);
+  border-radius: 0 0 var(--radius) var(--radius);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+.submit-progress {
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.submit-progress b { color: var(--accent); }
+
+/* Confirmation modal */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(26,26,24,.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-card {
+  background: white;
+  border-radius: 16px;
+  max-width: 460px;
+  width: 100%;
+  padding: 28px;
+  box-shadow: var(--shadow-lg);
+}
+.modal-card h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.modal-card p { color: var(--ink-soft); margin-bottom: 20px; font-size: 14px; line-height: 1.55; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ── Empty / placeholder ── */
+.placeholder-page {
+  text-align: center;
+  padding: 60px 30px;
+  color: var(--ink-mute);
+}
+.placeholder-page h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 22px;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+
+/* ── Firebase connection indicator ── */
+.fb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-mute);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  letter-spacing: .02em;
+}
+.fb-status .fb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-mute); }
+.fb-status.connected { color: var(--sage); border-color: var(--sage-soft); }
+.fb-status.connected .fb-dot { background: var(--sage); }
+.fb-status.connecting { color: var(--amber); }
+.fb-status.connecting .fb-dot { background: var(--amber); animation: pulse 1.2s ease infinite; }
+.fb-status.error { color: #b91c1c; border-color: #fca5a5; background: #fef2f2; }
+.fb-status.error .fb-dot { background: #b91c1c; }
+.fb-status.offline { color: var(--ink-mute); }
+.fb-status.offline .fb-dot { background: var(--ink-mute); }
+
+/* ── Debug panel (visibile solo admin/all) ── */
+.debug-panel {
+  margin-top: 24px;
+  background: #1A1A18;
+  color: #E5DDC8;
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.debug-panel h3 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 13px;
+  color: var(--accent-soft);
+  font-weight: 700;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.debug-panel pre {
+  background: rgba(255,255,255,.05);
+  padding: 10px 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 8px 0;
+  font-size: 11px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.debug-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.debug-btn {
+  background: #2A2A28;
+  color: #E5DDC8;
+  border: 1px solid #3A3A35;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.debug-btn:hover { background: var(--accent); border-color: var(--accent); color: white; }
+.debug-btn.danger:hover { background: #b91c1c; border-color: #b91c1c; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: white;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 300;
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transition: opacity .25s ease, transform .25s ease;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .autoval-layout { grid-template-columns: 1fr; }
+  .stepper { position: relative; top: 0; }
+  .step-item { display: inline-flex; margin-right: 4px; margin-bottom: 4px; }
+  .stepper-title { display: none; }
+  .home-grid { grid-template-columns: 1fr; }
+  .app-header { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+  .header-nav { width: 100%; order: 3; overflow-x: auto; }
+  .app-main { padding: 18px; }
+  .form-section { padding: 22px 18px; }
+  .submit-bar { margin: 16px -18px -22px; padding: 14px 18px; flex-direction: column; align-items: stretch; }
+  .rating-cell { width: 50px; }
+  .rating-table tbody td:first-child { font-size: 12.5px; }
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════
+     LOGIN SCREEN
+     ════════════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-eyebrow">Colloqui Trimestrali · 2026</div>
+    <div class="login-title">Colloqui <span class="accent">Team</span></div>
+    <div class="login-sub">Schede di valutazione · Quadient & Papyrus</div>
+
+    <button class="login-real-btn" id="msalLoginBtn" disabled title="Disabilitato in V0.1 (Mock mode)">
+      🔒 Accedi con Microsoft (disponibile in V0.2)
+    </button>
+
+    <div class="login-divider">Mock login · solo dev</div>
+
+    <div class="mock-users" id="mockUsersList"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     APP SHELL
+     ════════════════════════════════════════════════════════════════ -->
+<div id="app-shell" hidden>
+  <header class="app-header">
+    <a href="#/home" class="brand">Colloqui<span class="accent">Team</span></a>
+    <nav class="header-nav" id="headerNav"></nav>
+    <div class="save-status" id="saveStatus" style="display:none;">
+      <span class="dot"></span>
+      <span class="label">Tutto salvato</span>
+    </div>
+    <div class="fb-status connecting" id="fbStatus" title="Stato connessione Firebase">
+      <span class="fb-dot"></span>
+      <span class="fb-label">Connessione…</span>
+    </div>
+    <div class="user-chip" id="userChip"></div>
+    <button class="logout-btn" id="logoutBtn">Logout</button>
+  </header>
+
+  <main class="app-main" id="appMain"></main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+     ════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ========================================================================
+// MOCK USERS CONFIG
+// ⚠ TODO[V0.2] ⚠ : spostare in Firebase /users e leggere on login
+// ========================================================================
+const MOCK_USERS = [
+  {
+    slug: 'mario-rossi',
+    displayName: 'Mario Rossi',
+    email: 'mario.rossi@dataexpert.it',
+    role: 'user',
+    area: 'quadient',
+    ruolo: 'Sviluppatore CCM Quadient'
+  },
+  {
+    slug: 'maria-bianchi',
+    displayName: 'Maria Bianchi',
+    email: 'maria.bianchi@dataexpert.it',
+    role: 'user',
+    area: 'papyrus',
+    ruolo: 'Sviluppatore CCM Papyrus'
+  },
+  {
+    slug: 'simone-viscomi',
+    displayName: 'Simone Viscomi',
+    email: 'simone.viscomi@dataexpert.it',
+    role: 'admin',
+    area: 'quadient',
+    ruolo: 'Responsabile area Quadient'
+  },
+  {
+    slug: 'luigi-ferrara',
+    displayName: 'Luigi Ferrara',
+    email: 'luigi.ferrara@dataexpert.it',
+    role: 'admin',
+    area: 'all',
+    ruolo: 'Admin'
+  }
+];
+
+// ========================================================================
+// SECTIONS DATA — Quadient
+// ⚠ TODO[V0.2] ⚠ : caricare da Firebase /templates/quadient
+// ========================================================================
+const SOFT_SKILLS = [
+  'Comunicazione (chiarezza, trasparenza)',
+  'Puntualità e rispetto delle scadenze',
+  'Coinvolgimento e partecipazione attiva',
+  'Lavoro in Team e collaborazione',
+  'Proattività (proporre, non solo eseguire)',
+  'Atteggiamento e autocontrollo',
+  'Autonomia decisionale',
+  'Concentrazione e attenzione sui task',
+  'Organizzazione e pianificazione',
+  'Ascolto e apertura al confronto',
+  'Gestione cliente',
+  'Confronto con i propri responsabili'
+];
+
+const HARD_SKILLS_QUADIENT = [
+  'Quadient Inspire Designer',
+  'Quadient Inspire Interactive',
+  'Quadient Inspire Scaler',
+  'Quadient Dynamic Communication',
+  'Scripting Designer',
+  'Scripting Interactive',
+  'Inspire Evolve',
+  'Utilizzo AI',
+  'SQL · gestione DB (SSMS)',
+  'Accessibilità documenti — Inspire Designer + Tools',
+  'Qualità del codice (efficiente, descrittivo)'
+];
+
+const KPI_OPERATIVE = [
+  'Aderenza alle stime',
+  'Rispetto delle scadenze',
+  'Tracciatura del lavoro su Zoho Project',
+  'Gestione del carico di lavoro',
+  'Qualità delle soluzioni',
+  'Rispetto della compliance e degli standard',
+  'Manutenibilità del lavoro',
+  'Documentazione',
+  'Comunicazione dell’avanzamento',
+  'Gestione di imprevisti e blocchi',
+  'Ottimizzazione dei workflow',
+  'Approccio critico alle soluzioni cliente'
+];
+
+const RUOTA_MACRO = [
+  { titolo: 'Comunicazione',           voci: 'Coi responsabili · Con il cliente · Nel team' },
+  { titolo: 'Disciplina personale',    voci: 'Puntualità · Concentrazione · Organizzazione' },
+  { titolo: 'Atteggiamento & relazioni', voci: 'Autocontrollo · Lavoro in team · Ascolto' },
+  { titolo: 'Autonomia & iniziativa',  voci: 'Proattività · Autonomia · Coinvolgimento' },
+  { titolo: 'Quadient core',           voci: 'Inspire · Interactive · Evolve · Scaler' },
+  { titolo: 'Scripting & integrazioni', voci: 'Scripting Inspire · Extra' },
+  { titolo: 'Trasversali tecniche',    voci: 'SQL · Accessibilità · Business English' },
+  { titolo: 'Qualità della consegna',  voci: 'Codice · Documentazione · Manutenibilità' }
+];
+
+const RATING_LABELS = ['Carente', 'Acerbo', 'Adeguato', 'Solido', 'Punto di forza'];
+
+// ========================================================================
+// STATE
+// ========================================================================
+const state = {
+  currentUser: null,            // { slug, displayName, email, role, area, ruolo }
+  year: new Date().getFullYear(),
+  quarter: 'Q' + Math.ceil((new Date().getMonth() + 1) / 3),
+  scheda: null,                 // dati form autovalutazione del trimestre corrente
+  lockedAt: null,
+  saveTimer: null,
+  observer: null
+};
+
+// ========================================================================
+// STORAGE — Firebase RTDB con cache localStorage (write-through, read-through con fallback)
+//
+// Pattern:
+// - write: scrive PRIMA su localStorage (sync, garantito) POI su Firebase (async)
+// - read: prova Firebase (timeout 4s), se fallisce o offline → localStorage
+// - emptyScheda viene restituita se non c'è nulla né online né locale
+// ========================================================================
+const Storage = {
+  online: false,       // settato da Connection.setStatus()
+  schedaPath(userSlug, year, quarter, tipo) {
+    return `schede/${year}/${quarter}/${userSlug}/${tipo}`;
+  },
+  cacheKey(userSlug, year, quarter, tipo) {
+    return `colloquiteam_cache/${year}/${quarter}/${userSlug}/${tipo}`;
+  },
+
+  async loadScheda(userSlug, year, quarter, tipo) {
+    const path = this.schedaPath(userSlug, year, quarter, tipo);
+    const cacheKey = this.cacheKey(userSlug, year, quarter, tipo);
+
+    // Tentativo Firebase con timeout
+    try {
+      await window.firebaseReady;
+      const snap = await Promise.race([
+        window.firebaseDB.get(window.firebaseDB.ref(path)),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))
+      ]);
+      const val = snap.val();
+      if (val) {
+        // Aggiorna cache locale con i dati freschi
+        localStorage.setItem(cacheKey, JSON.stringify(val));
+        console.log('[Storage] load FB OK:', path);
+        return val;
+      }
+      // Nodo non esiste su Firebase → controlla cache locale
+      console.log('[Storage] load FB nodo vuoto, controllo cache:', path);
+    } catch (err) {
+      console.warn('[Storage] load FB fallito, fallback cache:', err.message, path);
+    }
+
+    // Fallback localStorage
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      try { return JSON.parse(raw); } catch(e) {}
+    }
+    return this.emptyScheda();
+  },
+
+  async saveScheda(userSlug, year, quarter, tipo, data) {
+    const path = this.schedaPath(userSlug, year, quarter, tipo);
+    const cacheKey = this.cacheKey(userSlug, year, quarter, tipo);
+
+    // 1. write-through cache locale (sync, sempre)
+    localStorage.setItem(cacheKey, JSON.stringify(data));
+
+    // 2. scrittura Firebase (async)
+    try {
+      await window.firebaseReady;
+      await window.firebaseDB.set(window.firebaseDB.ref(path), data);
+      console.log('[Storage] save FB OK:', path);
+      return { ok: true, synced: true };
+    } catch (err) {
+      console.warn('[Storage] save FB fallito (dato in cache locale):', err.message, path);
+      return { ok: true, synced: false, error: err.message };
+    }
+  },
+
+  /** Cancella la scheda da Firebase e dalla cache (utility debug admin) */
+  async deleteScheda(userSlug, year, quarter, tipo) {
+    const path = this.schedaPath(userSlug, year, quarter, tipo);
+    const cacheKey = this.cacheKey(userSlug, year, quarter, tipo);
+    localStorage.removeItem(cacheKey);
+    try {
+      await window.firebaseReady;
+      await window.firebaseDB.remove(window.firebaseDB.ref(path));
+      return true;
+    } catch (err) {
+      console.error('[Storage] delete FB fallito:', err.message);
+      return false;
+    }
+  },
+
+  /** Ritorna l'intero ramo /schede/{anno}/{quarter} per admin diagnostico */
+  async readBranch(year, quarter) {
+    try {
+      await window.firebaseReady;
+      const snap = await window.firebaseDB.get(window.firebaseDB.ref(`schede/${year}/${quarter}`));
+      return snap.val() || {};
+    } catch (err) {
+      console.error('[Storage] readBranch fallito:', err.message);
+      return null;
+    }
+  },
+
+  emptyScheda() {
+    return {
+      softSkills: {}, hardSkills: {}, kpi: {},
+      episodiNote: '',
+      statoAvanzamentoHard: '',
+      statoAvanzamentoKpi: '',
+      obiettivoPrioritario: '',
+      obiettivoSecondario: '',
+      proposteAzienda: '',
+      proposteIdea: '',
+      proposteResponsabile: '',
+      richiesteAzienda: '',
+      richiesteColleghi: '',
+      ruota: {},
+      dataColloquio: '',
+      updatedAt: null,
+      submittedAt: null,
+      lockedAt: null
+    };
+  }
+};
+
+// ========================================================================
+// CONNECTION — gestione stato firebase + auth anonima
+// ========================================================================
+const Connection = {
+  async init() {
+    Connection.setStatus('connecting', 'Connessione…');
+    try {
+      await window.firebaseReady;
+      // Auth anonima — necessaria per soddisfare le rules auth!=null
+      const cred = await window.firebaseAuth.signInAnonymously();
+      Storage.online = true;
+      Connection.setStatus('connected', 'Online · ' + cred.user.uid.slice(0, 8));
+      console.log('[Connection] auth anonima ok, uid:', cred.user.uid);
+
+      // Listener cambio stato (se logout o token scade)
+      window.firebaseAuth.onAuthStateChanged((user) => {
+        if (!user) {
+          Storage.online = false;
+          Connection.setStatus('offline', 'Disconnesso');
+        }
+      });
+
+      // Listener stato network browser
+      window.addEventListener('online', () => Connection.setStatus('connected', 'Online'));
+      window.addEventListener('offline', () => Connection.setStatus('offline', 'Offline · cache locale'));
+
+    } catch (err) {
+      Storage.online = false;
+      Connection.setStatus('error', 'Errore Firebase');
+      console.error('[Connection] init fallita:', err);
+    }
+  },
+
+  setStatus(kind, label) {
+    const el = document.getElementById('fbStatus');
+    if (!el) return;
+    el.className = 'fb-status ' + kind;
+    el.querySelector('.fb-label').textContent = label;
+  }
+};
+
+// ========================================================================
+// AUTH
+// ⚠ TODO[V0.2] ⚠ : sostituire mockAuth.login con MSAL loginRedirect
+// ========================================================================
+const Auth = {
+  login(userSlug) {
+    const user = MOCK_USERS.find(u => u.slug === userSlug);
+    if (!user) return;
+    state.currentUser = user;
+    sessionStorage.setItem('colloquiteam_currentUser', userSlug);
+    showApp();
+  },
+
+  logout() {
+    state.currentUser = null;
+    sessionStorage.removeItem('colloquiteam_currentUser');
+    location.hash = '';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-shell').hidden = true;
+  },
+
+  restoreSession() {
+    const slug = sessionStorage.getItem('colloquiteam_currentUser');
+    if (!slug) return false;
+    const user = MOCK_USERS.find(u => u.slug === slug);
+    if (!user) return false;
+    state.currentUser = user;
+    return true;
+  }
+};
+
+// ========================================================================
+// ROUTER
+// ========================================================================
+const Router = {
+  parse() {
+    const hash = location.hash.replace(/^#/, '') || '/home';
+    const parts = hash.split('/').filter(Boolean);
+    return { route: parts[0] || 'home', args: parts.slice(1) };
+  },
+
+  navigate(path) {
+    location.hash = '#' + path;
+  },
+
+  go() {
+    const { route, args } = this.parse();
+
+    // Guards di accesso
+    if (!state.currentUser) {
+      // Già in login screen
+      return;
+    }
+
+    const isAdmin = state.currentUser.role === 'admin';
+
+    switch (route) {
+      case 'home':
+        renderHome();
+        break;
+      case 'autoval':
+        renderAutovalutazione();
+        break;
+      case 'team':
+        if (!isAdmin) { Router.navigate('/home'); return; }
+        renderTeamStub();
+        break;
+      case 'valuta':
+        if (!isAdmin) { Router.navigate('/home'); return; }
+        renderPlaceholder('Valutazione responsabile', 'In arrivo nella prossima iterazione');
+        break;
+      case 'colloquio':
+        if (!isAdmin) { Router.navigate('/home'); return; }
+        renderPlaceholder('Vista colloquio · Ruota sovrapposta', 'In arrivo nella prossima iterazione');
+        break;
+      default:
+        renderPlaceholder('Pagina non trovata', `La route #${route} non esiste`);
+    }
+
+    updateHeaderNav(route);
+  }
+};
+
+// ========================================================================
+// APP INIT
+// ========================================================================
+function init() {
+  // Render mock login list
+  const list = document.getElementById('mockUsersList');
+  MOCK_USERS.forEach(u => {
+    const btn = document.createElement('button');
+    btn.className = 'mock-btn';
+    btn.innerHTML = `<b>${u.displayName}</b><small>${u.email} · ${u.role} · area ${u.area}</small>`;
+    btn.onclick = () => Auth.login(u.slug);
+    list.appendChild(btn);
+  });
+
+  // Logout
+  document.getElementById('logoutBtn').onclick = () => Auth.logout();
+
+  // Restore session if any
+  if (Auth.restoreSession()) {
+    showApp();
+  }
+
+  // Router
+  window.addEventListener('hashchange', () => Router.go());
+}
+
+async function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-shell').hidden = false;
+  renderUserChip();
+
+  // Bootstrap connessione Firebase (auth anonima + listener stato)
+  // Awaitata così le prime view possono già usare Storage senza race condition
+  await Connection.init();
+
+  // Default route
+  if (!location.hash || location.hash === '#') location.hash = '#/home';
+  else Router.go();
+}
+
+function renderUserChip() {
+  const u = state.currentUser;
+  document.getElementById('userChip').innerHTML = `
+    <span>${u.displayName}</span>
+    <span class="role-badge ${u.role}">${u.role}</span>
+  `;
+}
+
+function updateHeaderNav(currentRoute) {
+  const nav = document.getElementById('headerNav');
+  const isAdmin = state.currentUser.role === 'admin';
+
+  const links = [{ path: '/home', label: 'Home' }];
+  if (state.currentUser.role === 'user') {
+    links.push({ path: '/autoval', label: 'La mia scheda' });
+  }
+  if (isAdmin) {
+    links.push({ path: '/team', label: 'Team' });
+    links.push({ path: '/autoval', label: 'Compila come utente' });
+  }
+
+  nav.innerHTML = links.map(l => `
+    <a href="#${l.path}" class="nav-link ${l.path.startsWith('/'+currentRoute) ? 'active' : ''}">${l.label}</a>
+  `).join('');
+}
+
+// ========================================================================
+// VIEW: HOME
+// ========================================================================
+async function renderHome() {
+  const u = state.currentUser;
+  const isAdmin = u.role === 'admin';
+  const main = document.getElementById('appMain');
+
+  if (isAdmin) {
+    main.innerHTML = `
+      <div class="page-head">
+        <div class="page-eyebrow">${u.area === 'all' ? 'Admin · tutte le aree' : 'Admin · area ' + u.area}</div>
+        <h1 class="page-title">Ciao <span class="accent">${u.displayName.split(' ')[0]}</span></h1>
+        <p class="page-sub">Da qui gestisci le schede del team e prepari i colloqui trimestrali.</p>
+      </div>
+
+      <div class="home-grid">
+        <div class="card home-card">
+          <span class="scheda-stato vuota">v0.2 · firebase live</span>
+          <h2>Dashboard team</h2>
+          <p>Vista d'insieme delle schede del trimestre — chi ha compilato, chi è in bozza, chi non ha iniziato. Da qui apri la valutazione di un membro e la vista colloquio (ruota sovrapposta auto vs val).</p>
+          <a href="#/team" class="btn-primary">Vai al team →</a>
+        </div>
+        <div class="card home-card">
+          <span class="scheda-stato vuota">opzionale</span>
+          <h2>Compila la tua autovalutazione</h2>
+          <p>Anche da admin puoi compilare la tua scheda autovalutazione.</p>
+          <a href="#/autoval" class="btn-secondary">Apri form →</a>
+        </div>
+      </div>
+
+      ${u.area === 'all' ? '<div id="debugPanelHost"></div>' : ''}
+    `;
+
+    if (u.area === 'all') {
+      renderDebugPanel();
+    }
+    return;
+  }
+
+  // User branch
+  {
+    const scheda = await Storage.loadScheda(u.slug, state.year, state.quarter, 'autovalutazione');
+    const stato = scheda.submittedAt ? 'inviata' : (scheda.updatedAt ? 'bozza' : 'vuota');
+    const statoLabel = { vuota: 'Non iniziata', bozza: 'In bozza', inviata: 'Inviata' }[stato];
+
+    main.innerHTML = `
+      <div class="page-head">
+        <div class="page-eyebrow">${u.ruolo} · ${u.area.toUpperCase()}</div>
+        <h1 class="page-title">Ciao <span class="accent">${u.displayName.split(' ')[0]}</span></h1>
+        <p class="page-sub">Compila la tua scheda di autovalutazione trimestrale.</p>
+      </div>
+
+      <div class="home-grid">
+        <div class="card home-card">
+          <span class="scheda-stato ${stato}">${statoLabel}</span>
+          <h2>Scheda ${state.year} · <span class="accent">${state.quarter}</span></h2>
+          <p>${stato === 'inviata'
+              ? 'Hai già inviato la scheda di questo trimestre. Puoi rivederla ma non modificarla.'
+              : stato === 'bozza'
+                ? 'Riprendi a compilare. Il salvataggio è automatico ogni volta che modifichi un campo.'
+                : 'Inizia a compilare la scheda di questo trimestre. Tutte le sezioni si salvano automaticamente.'}</p>
+          <div class="trim-picker">
+            ${['Q1','Q2','Q3','Q4'].map(q => `
+              <button class="trim-btn ${state.quarter === q ? 'active' : ''}" onclick="setQuarter('${q}')">${q}</button>
+            `).join('')}
+          </div>
+          <a href="#/autoval" class="btn-primary">
+            ${stato === 'vuota' ? 'Inizia la compilazione →' : stato === 'bozza' ? 'Continua a compilare →' : 'Rileggi la scheda →'}
+          </a>
+        </div>
+        <div class="card home-card">
+          <span class="scheda-stato vuota">info</span>
+          <h2>Come funziona</h2>
+          <p>La scheda ha 7 sezioni: Soft Skills, Hard Skills, KPI, Obiettivi, Proposte, Richieste e la Ruota delle Performance. Compila quando vuoi, anche in più sessioni: tutto si salva.</p>
+        </div>
+      </div>
+    `;
+  }
+}
+
+window.setQuarter = function(q) {
+  state.quarter = q;
+  Router.go();
+};
+
+// ========================================================================
+// VIEW: AUTOVALUTAZIONE (form completo)
+// ========================================================================
+async function renderAutovalutazione() {
+  const u = state.currentUser;
+  // Per ora supportiamo solo area quadient nel V0.1
+  const isQuadient = u.area === 'quadient' || u.area === 'all';
+  if (!isQuadient) {
+    renderPlaceholder('Variante Papyrus', 'In arrivo nella prossima iterazione. Per ora solo Quadient.');
+    return;
+  }
+
+  // Mostra "loading" mentre carichiamo da Firebase
+  document.getElementById('appMain').innerHTML = `
+    <div class="placeholder-page"><h2>Caricamento scheda…</h2><p>Connessione a Firebase</p></div>
+  `;
+
+  // Carica dati esistenti (async — Firebase con fallback cache)
+  state.scheda = await Storage.loadScheda(u.slug, state.year, state.quarter, 'autovalutazione');
+  state.lockedAt = state.scheda.lockedAt;
+
+  const main = document.getElementById('appMain');
+  main.innerHTML = `
+    <div class="page-head">
+      <div class="page-eyebrow">Colloquio trimestrale · ${state.year} · ${state.quarter}</div>
+      <h1 class="page-title">Scheda <span class="accent">autovalutazione</span> — ${u.displayName}</h1>
+      <p class="page-sub">${u.ruolo}</p>
+    </div>
+
+    <div class="autoval-layout">
+      <aside class="stepper" id="stepper">
+        <div class="stepper-title">Sezioni</div>
+        <a href="#sec-01" class="step-item active" data-target="sec-01"><span class="step-num">01</span> Soft Skills <span class="step-tick">✓</span></a>
+        <a href="#sec-02" class="step-item" data-target="sec-02"><span class="step-num">02</span> Hard Skills <span class="step-tick">✓</span></a>
+        <a href="#sec-03" class="step-item" data-target="sec-03"><span class="step-num">03</span> KPI Operative <span class="step-tick">✓</span></a>
+        <a href="#sec-04" class="step-item" data-target="sec-04"><span class="step-num">04</span> Obiettivi <span class="step-tick">✓</span></a>
+        <a href="#sec-05" class="step-item" data-target="sec-05"><span class="step-num">05</span> Proposte <span class="step-tick">✓</span></a>
+        <a href="#sec-06" class="step-item" data-target="sec-06"><span class="step-num">06</span> Richieste <span class="step-tick">✓</span></a>
+        <a href="#sec-07" class="step-item" data-target="sec-07"><span class="step-num">07</span> Ruota <span class="step-tick">✓</span></a>
+      </aside>
+
+      <form id="schedaForm" onsubmit="return false;">
+        ${renderSection01()}
+        ${renderSection02()}
+        ${renderSection03()}
+        ${renderSection04()}
+        ${renderSection05()}
+        ${renderSection06()}
+        ${renderSection07()}
+
+        <div class="submit-bar">
+          <div class="submit-progress" id="submitProgress">Compilazione in corso…</div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn-secondary" onclick="manualSave(); return false;">💾 Salva bozza</button>
+            <button class="btn-primary" onclick="confirmSubmit(); return false;" id="submitBtn">
+              ✓ Invia definitivamente
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  `;
+
+  // Bind events + initial fill
+  setupFormBindings();
+  fillFormFromState();
+  setupScrollSpy();
+  showSaveStatus();
+  updateProgress();
+
+  // Disable form if locked
+  if (state.lockedAt) {
+    document.querySelectorAll('#schedaForm input, #schedaForm textarea, #schedaForm button.btn-primary')
+      .forEach(el => el.disabled = true);
+    document.getElementById('submitBtn').textContent = '🔒 Scheda inviata il ' + new Date(state.lockedAt).toLocaleDateString('it-IT');
+  }
+}
+
+// ── Section renderers ────────────────────────────────────────────────────
+function renderRatingTable(idPrefix, items) {
+  return `
+    <table class="rating-table">
+      <thead>
+        <tr>
+          <th>Descrizione</th>
+          ${RATING_LABELS.map((lbl, i) => `<th class="col-${i+1}">${lbl}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map((item, idx) => `
+          <tr>
+            <td>${item}</td>
+            ${[1,2,3,4,5].map(v => `
+              <td class="rating-cell" data-rating="${v}">
+                <input type="radio" name="${idPrefix}-${idx}" id="${idPrefix}-${idx}-${v}" value="${v}" data-field="${idPrefix}" data-idx="${idx}">
+                <label for="${idPrefix}-${idx}-${v}" aria-label="${RATING_LABELS[v-1]}"></label>
+              </td>
+            `).join('')}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderSection01() {
+  return `
+    <section class="form-section" id="sec-01">
+      <div class="section-head">
+        <span class="section-num">01</span><span class="section-title">Soft Skills</span>
+        <div class="section-desc">Come ti percepisci nelle dimensioni relazionali, organizzative e di atteggiamento.</div>
+      </div>
+      ${renderRatingTable('soft', SOFT_SKILLS)}
+      <label class="field-label" for="episodiNote">Episodi concreti · note</label>
+      <span class="field-hint">Un esempio reale rende il giudizio più solido</span>
+      <textarea class="field-textarea" id="episodiNote" data-field-text="episodiNote" placeholder="Racconta un episodio significativo del trimestre..."></textarea>
+    </section>
+  `;
+}
+
+function renderSection02() {
+  return `
+    <section class="form-section" id="sec-02">
+      <div class="section-head">
+        <span class="section-num">02</span><span class="section-title">Hard Skills · competenze tecniche</span>
+        <div class="section-desc">Stack tecnologico, strumenti e capacità tecniche specifiche del ruolo.</div>
+      </div>
+      ${renderRatingTable('hard', HARD_SKILLS_QUADIENT)}
+      <label class="field-label" for="statoHard">Stato avanzamento e prossimi step</label>
+      <span class="field-hint">Dove sono, dove vorrei arrivare entro fine trimestre</span>
+      <textarea class="field-textarea" id="statoHard" data-field-text="statoAvanzamentoHard" placeholder="Descrivi il tuo percorso tecnico..."></textarea>
+    </section>
+  `;
+}
+
+function renderSection03() {
+  return `
+    <section class="form-section" id="sec-03">
+      <div class="section-head">
+        <span class="section-num">03</span><span class="section-title">Skill Operative · KPI Performance</span>
+        <div class="section-desc">Organizzazione, gestione del tempo e produttività.</div>
+      </div>
+      ${renderRatingTable('kpi', KPI_OPERATIVE)}
+      <label class="field-label" for="statoKpi">Stato avanzamento e prossimi step</label>
+      <span class="field-hint">Dove sono, dove voglio arrivare entro fine trimestre</span>
+      <textarea class="field-textarea" id="statoKpi" data-field-text="statoAvanzamentoKpi" placeholder="Descrivi il tuo approccio operativo..."></textarea>
+    </section>
+  `;
+}
+
+function renderSection04() {
+  return `
+    <section class="form-section" id="sec-04">
+      <div class="section-head">
+        <span class="section-num">04</span><span class="section-title">Obiettivi individuali per il trimestre</span>
+        <div class="section-desc">Due macro obiettivi: crescita professionale e personale.</div>
+      </div>
+      <label class="field-label" for="objPrior">Obiettivo prioritario</label>
+      <span class="field-hint">Crescita professionale</span>
+      <textarea class="field-textarea" id="objPrior" data-field-text="obiettivoPrioritario" placeholder="Es. consolidare scripting avanzato in Inspire Interactive..."></textarea>
+
+      <label class="field-label" for="objSec">Obiettivo secondario</label>
+      <span class="field-hint">Crescita personale</span>
+      <textarea class="field-textarea" id="objSec" data-field-text="obiettivoSecondario" placeholder="Es. migliorare la presentazione di un progetto in inglese..."></textarea>
+    </section>
+  `;
+}
+
+function renderSection05() {
+  return `
+    <section class="form-section" id="sec-05">
+      <div class="section-head">
+        <span class="section-num">05</span><span class="section-title">Proposte e idee migliorative</span>
+      </div>
+
+      <label class="field-label" for="propAz">L'azienda potrebbe migliorare in...</label>
+      <span class="field-hint">Processi, strumenti, ambiente di lavoro...</span>
+      <textarea class="field-textarea" id="propAz" data-field-text="proposteAzienda"></textarea>
+
+      <label class="field-label" for="propIdea">Una mia idea concreta per il 2026</label>
+      <span class="field-hint">Una proposta realizzabile, non un desiderio</span>
+      <textarea class="field-textarea" id="propIdea" data-field-text="proposteIdea"></textarea>
+
+      <label class="field-label" for="propResp">Il responsabile potrebbe...</label>
+      <span class="field-hint">Cosa farebbe la differenza nel supporto quotidiano</span>
+      <textarea class="field-textarea" id="propResp" data-field-text="proposteResponsabile"></textarea>
+    </section>
+  `;
+}
+
+function renderSection06() {
+  return `
+    <section class="form-section" id="sec-06">
+      <div class="section-head">
+        <span class="section-num">06</span><span class="section-title">Richieste ed esigenze particolari</span>
+      </div>
+
+      <label class="field-label" for="richAz">Cosa vorrei chiedere all'azienda</label>
+      <span class="field-hint">Formazione, strumenti, condizioni, riconoscimento — una richiesta chiara, motivata dal lavoro che faccio</span>
+      <textarea class="field-textarea" id="richAz" data-field-text="richiesteAzienda"></textarea>
+
+      <label class="field-label" for="richColl">Rapporto con i colleghi</label>
+      <span class="field-hint">Un tipo di collaborazione, un'informazione, un comportamento</span>
+      <textarea class="field-textarea" id="richColl" data-field-text="richiesteColleghi"></textarea>
+    </section>
+  `;
+}
+
+function renderSection07() {
+  return `
+    <section class="form-section" id="sec-07">
+      <div class="section-head">
+        <span class="section-num">07</span><span class="section-title">Ruota delle performance · sintesi</span>
+        <div class="section-desc">Punteggio 0–10 per macro-area. Sulla base dei valori assegnati verrà generato uno schema a ruota, sovrapposto a quello del tuo responsabile in fase di colloquio.</div>
+      </div>
+      <table class="ruota-table">
+        <thead>
+          <tr>
+            <th>Macro-area</th>
+            ${Array.from({length:11}, (_,i) => `<th>${i}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${RUOTA_MACRO.map((m, idx) => `
+            <tr>
+              <td class="macro-name"><b>${m.titolo}</b><span>${m.voci}</span></td>
+              ${Array.from({length:11}, (_,v) => `
+                <td>
+                  <input type="radio" class="ruota-radio" name="ruota-${idx}" id="ruota-${idx}-${v}" value="${v}" data-field="ruota" data-idx="${idx}">
+                  <label for="ruota-${idx}-${v}" aria-label="${v}"></label>
+                </td>
+              `).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </section>
+  `;
+}
+
+// ── Form bindings ────────────────────────────────────────────────────────
+function setupFormBindings() {
+  // Radio inputs (rating tables + ruota)
+  document.querySelectorAll('#schedaForm input[type="radio"]').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const field = e.target.dataset.field; // 'soft' | 'hard' | 'kpi' | 'ruota'
+      const idx = e.target.dataset.idx;
+      const value = parseInt(e.target.value);
+      const fieldMap = { soft: 'softSkills', hard: 'hardSkills', kpi: 'kpi', ruota: 'ruota' };
+      const key = fieldMap[field];
+      if (!state.scheda[key]) state.scheda[key] = {};
+      state.scheda[key][idx] = value;
+      scheduleSave();
+      updateProgress();
+      updateStepperCompletion();
+    });
+  });
+
+  // Textareas
+  document.querySelectorAll('#schedaForm textarea').forEach(ta => {
+    ta.addEventListener('input', (e) => {
+      const field = e.target.dataset.fieldText;
+      state.scheda[field] = e.target.value;
+      scheduleSave();
+      updateProgress();
+    });
+  });
+}
+
+function fillFormFromState() {
+  const s = state.scheda;
+
+  ['softSkills','hardSkills','kpi','ruota'].forEach(key => {
+    const prefix = { softSkills:'soft', hardSkills:'hard', kpi:'kpi', ruota:'ruota' }[key];
+    Object.entries(s[key] || {}).forEach(([idx, val]) => {
+      const radio = document.getElementById(`${prefix}-${idx}-${val}`);
+      if (radio) radio.checked = true;
+    });
+  });
+
+  ['episodiNote','statoAvanzamentoHard','statoAvanzamentoKpi',
+   'obiettivoPrioritario','obiettivoSecondario',
+   'proposteAzienda','proposteIdea','proposteResponsabile',
+   'richiesteAzienda','richiesteColleghi'].forEach(key => {
+    const ta = document.querySelector(`textarea[data-field-text="${key}"]`);
+    if (ta) ta.value = s[key] || '';
+  });
+
+  updateStepperCompletion();
+}
+
+// ── Save (debounced) + status ────────────────────────────────────────────
+function scheduleSave() {
+  setSaveStatus('dirty');
+  clearTimeout(state.saveTimer);
+  state.saveTimer = setTimeout(() => {
+    saveNow();
+  }, 800);
+}
+
+function manualSave() {
+  clearTimeout(state.saveTimer);
+  saveNow();
+  toast('Bozza salvata');
+}
+
+async function saveNow() {
+  if (!state.scheda || !state.currentUser) return;
+  setSaveStatus('saving');
+  state.scheda.updatedAt = Date.now();
+  const res = await Storage.saveScheda(state.currentUser.slug, state.year, state.quarter, 'autovalutazione', state.scheda);
+  if (res.synced) {
+    setSaveStatus('saved');
+  } else {
+    // Salvato in locale ma non sincronizzato: avviso utente
+    setSaveStatus('dirty');
+    document.querySelector('#saveStatus .label').textContent = 'Solo in locale (no sync)';
+  }
+}
+
+function setSaveStatus(kind) {
+  const el = document.getElementById('saveStatus');
+  if (!el) return;
+  el.style.display = 'flex';
+  el.className = 'save-status ' + (kind === 'saved' ? '' : kind);
+  const labels = { saved: 'Tutto salvato', dirty: 'Modifiche non salvate', saving: 'Salvataggio…' };
+  el.querySelector('.label').textContent = labels[kind] || 'Tutto salvato';
+}
+
+function showSaveStatus() {
+  document.getElementById('saveStatus').style.display = 'flex';
+  setSaveStatus('saved');
+}
+
+// ── Progress + stepper completion ────────────────────────────────────────
+function updateProgress() {
+  const s = state.scheda;
+  let filled = 0, total = 0;
+
+  total += SOFT_SKILLS.length;
+  filled += Object.keys(s.softSkills || {}).length;
+  total += HARD_SKILLS_QUADIENT.length;
+  filled += Object.keys(s.hardSkills || {}).length;
+  total += KPI_OPERATIVE.length;
+  filled += Object.keys(s.kpi || {}).length;
+  total += RUOTA_MACRO.length;
+  filled += Object.keys(s.ruota || {}).length;
+
+  // 10 campi di testo
+  const textFields = ['episodiNote','statoAvanzamentoHard','statoAvanzamentoKpi',
+    'obiettivoPrioritario','obiettivoSecondario',
+    'proposteAzienda','proposteIdea','proposteResponsabile',
+    'richiesteAzienda','richiesteColleghi'];
+  total += textFields.length;
+  filled += textFields.filter(f => (s[f] || '').trim().length > 10).length;
+
+  const pct = Math.round(filled / total * 100);
+  const el = document.getElementById('submitProgress');
+  if (el) el.innerHTML = 'Compilazione: <b>' + pct + '%</b> · ' + filled + ' / ' + total + ' campi';
+}
+
+function updateStepperCompletion() {
+  const s = state.scheda;
+  const sections = [
+    { id: 'sec-01', done: Object.keys(s.softSkills || {}).length >= SOFT_SKILLS.length },
+    { id: 'sec-02', done: Object.keys(s.hardSkills || {}).length >= HARD_SKILLS_QUADIENT.length },
+    { id: 'sec-03', done: Object.keys(s.kpi || {}).length >= KPI_OPERATIVE.length },
+    { id: 'sec-04', done: (s.obiettivoPrioritario || '').length > 10 && (s.obiettivoSecondario || '').length > 10 },
+    { id: 'sec-05', done: (s.proposteAzienda || '').length > 10 },
+    { id: 'sec-06', done: (s.richiesteAzienda || '').length > 10 },
+    { id: 'sec-07', done: Object.keys(s.ruota || {}).length >= RUOTA_MACRO.length }
+  ];
+  sections.forEach(sec => {
+    const item = document.querySelector('.step-item[data-target="' + sec.id + '"]');
+    if (item) item.classList.toggle('completed', sec.done);
+  });
+}
+
+// ── Scroll-spy stepper ───────────────────────────────────────────────────
+function setupScrollSpy() {
+  if (state.observer) state.observer.disconnect();
+  state.observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        var id = entry.target.id;
+        document.querySelectorAll('.step-item').forEach(function(el) {
+          el.classList.toggle('active', el.dataset.target === id);
+        });
+      }
+    });
+  }, { rootMargin: '-15% 0px -65% 0px', threshold: 0 });
+  document.querySelectorAll('.form-section').forEach(function(s) { state.observer.observe(s); });
+}
+
+// ── Submit con conferma ──────────────────────────────────────────────────
+function confirmSubmit() {
+  var s = state.scheda;
+  var incomplete = [];
+  if (Object.keys(s.softSkills || {}).length < SOFT_SKILLS.length) incomplete.push('Soft Skills');
+  if (Object.keys(s.hardSkills || {}).length < HARD_SKILLS_QUADIENT.length) incomplete.push('Hard Skills');
+  if (Object.keys(s.kpi || {}).length < KPI_OPERATIVE.length) incomplete.push('KPI');
+  if (Object.keys(s.ruota || {}).length < RUOTA_MACRO.length) incomplete.push('Ruota');
+
+  var modal = document.createElement('div');
+  modal.className = 'modal-backdrop';
+  var bodyMsg;
+  if (incomplete.length > 0) {
+    bodyMsg = '<p>Non hai compilato tutte le voci di: <b>' + incomplete.join(', ') +
+      '</b>.<br>Vuoi inviare lo stesso? Dopo l&rsquo;invio la scheda non sar&agrave; pi&ugrave; modificabile.</p>';
+  } else {
+    bodyMsg = '<p>Stai per inviare la scheda. <b>Dopo l&rsquo;invio non potrai pi&ugrave; modificarla.</b><br>Sicuro di voler procedere?</p>';
+  }
+  modal.innerHTML =
+    '<div class="modal-card"><h3>Invio definitivo</h3>' + bodyMsg +
+    '<div class="modal-actions">' +
+      '<button class="btn-secondary" onclick="this.closest(&quot;.modal-backdrop&quot;).remove()">Annulla</button>' +
+      '<button class="btn-primary" onclick="doSubmit(this)">S&igrave;, invia</button>' +
+    '</div></div>';
+  document.body.appendChild(modal);
+}
+
+window.doSubmit = async function(btn) {
+  btn.disabled = true;
+  state.scheda.submittedAt = Date.now();
+  state.scheda.lockedAt = Date.now();
+  state.lockedAt = state.scheda.lockedAt;
+  await saveNow();
+  var modal = document.querySelector('.modal-backdrop');
+  if (modal) modal.remove();
+  toast('Scheda inviata');
+  setTimeout(function() { Router.go(); }, 600);
+};
+window.manualSave = manualSave;
+window.confirmSubmit = confirmSubmit;
+
+// ========================================================================
+// VIEW: TEAM (admin)
+// ========================================================================
+async function renderTeamStub() {
+  var u = state.currentUser;
+  var team = MOCK_USERS.filter(function(m) {
+    return m.role === 'user' && (u.area === 'all' || m.area === u.area);
+  });
+  var main = document.getElementById('appMain');
+  document.getElementById('saveStatus').style.display = 'none';
+  main.innerHTML = '<div class="placeholder-page"><h2>Caricamento team…</h2></div>';
+
+  var rows = await Promise.all(team.map(async function(m) {
+    var loaded = await Promise.all([
+      Storage.loadScheda(m.slug, state.year, state.quarter, 'autovalutazione'),
+      Storage.loadScheda(m.slug, state.year, state.quarter, 'valutazione')
+    ]);
+    var sch = loaded[0], valSch = loaded[1];
+    var autoStato = sch.submittedAt ? 'inviata' : (sch.updatedAt ? 'bozza' : 'vuota');
+    var valStato  = valSch.submittedAt ? 'inviata' : (valSch.updatedAt ? 'bozza' : 'vuota');
+    return { m: m, autoStato: autoStato, valStato: valStato };
+  }));
+  var lblMap = { vuota: '— Non iniziata', bozza: 'In bozza', inviata: '✓ Inviata' };
+
+  var html = '';
+  html += '<div class="page-head">';
+  html +=   '<div class="page-eyebrow">Team · ' + state.year + ' · ' + state.quarter + '</div>';
+  html +=   '<h1 class="page-title">I tuoi <span class="accent">membri di team</span></h1>';
+  html +=   '<p class="page-sub">Area visibile: <b>' + (u.area === 'all' ? 'tutte' : u.area) + '</b></p>';
+  html += '</div>';
+  html += '<div class="card"><table style="width:100%; border-collapse:collapse;">';
+  html +=   '<thead><tr style="border-bottom:2px solid var(--rule-soft);">';
+  ['Membro','Area','Autoval','Val resp','Azioni'].forEach(function(h) {
+    html += '<th style="text-align:left; padding:14px 8px; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-mute);">' + h + '</th>';
+  });
+  html +=   '</tr></thead><tbody>';
+  rows.forEach(function(r) {
+    html += '<tr style="border-bottom:1px solid var(--rule-soft);">';
+    html +=   '<td style="padding:14px 8px;"><b>' + r.m.displayName + '</b><br><small style="color:var(--ink-mute);">' + r.m.email + '</small></td>';
+    html +=   '<td style="padding:14px 8px;">' + r.m.area + '</td>';
+    html +=   '<td style="padding:14px 8px;"><span class="scheda-stato ' + r.autoStato + '">' + lblMap[r.autoStato] + '</span></td>';
+    html +=   '<td style="padding:14px 8px;"><span class="scheda-stato ' + r.valStato + '">'  + lblMap[r.valStato]  + '</span></td>';
+    html +=   '<td style="padding:14px 8px;">';
+    html +=     '<button class="btn-secondary" style="padding:6px 14px; font-size:12px;" disabled title="In arrivo">Valuta</button> ';
+    html +=     '<button class="btn-secondary" style="padding:6px 14px; font-size:12px;" disabled title="In arrivo">Colloquio</button>';
+    html +=   '</td></tr>';
+  });
+  html +=   '</tbody></table>';
+  if (rows.length === 0) html += '<p style="text-align:center; padding:40px; color:var(--ink-mute);">Nessun membro nella tua area.</p>';
+  html += '</div>';
+  html += '<p style="margin-top:18px; color:var(--ink-mute); font-size:13px; text-align:center;">I bottoni "Valuta" e "Colloquio" saranno attivi nella prossima iterazione.</p>';
+  main.innerHTML = html;
+}
+
+// ========================================================================
+// DEBUG PANEL — visibile solo a admin/all
+// ========================================================================
+async function renderDebugPanel() {
+  var host = document.getElementById('debugPanelHost');
+  if (!host) return;
+  host.innerHTML =
+    '<div class="debug-panel">' +
+      '<h3>Debug Firebase &middot; admin/all only</h3>' +
+      '<div>Anno &middot; Q corrente: <b>' + state.year + ' &middot; ' + state.quarter + '</b></div>' +
+      '<div>Project: <b>area-ccm-colloqui-personali</b></div>' +
+      '<div>Path letto: <b>/schede/' + state.year + '/' + state.quarter + '</b></div>' +
+      '<pre id="debugBranchDump">caricamento snapshot&hellip;</pre>' +
+      '<div class="debug-actions">' +
+        '<button class="debug-btn" onclick="reloadDebugDump()">Ricarica snapshot</button> ' +
+        '<button class="debug-btn danger" onclick="wipeAllSchede()">Cancella TUTTE le schede ' + state.quarter + ' (test)</button>' +
+      '</div>' +
+    '</div>';
+  reloadDebugDump();
+}
+
+window.reloadDebugDump = async function() {
+  var el = document.getElementById('debugBranchDump');
+  if (!el) return;
+  el.textContent = 'caricamento snapshot…';
+  var data = await Storage.readBranch(state.year, state.quarter);
+  if (data === null) { el.textContent = '⚠ errore lettura Firebase'; return; }
+  var summary = {};
+  Object.entries(data).forEach(function(entry) {
+    var slug = entry[0], tipi = entry[1];
+    summary[slug] = {};
+    Object.entries(tipi).forEach(function(e2) {
+      var tipo = e2[0], scheda = e2[1];
+      summary[slug][tipo] = {
+        submittedAt: scheda.submittedAt ? new Date(scheda.submittedAt).toLocaleString('it-IT') : null,
+        updatedAt:   scheda.updatedAt   ? new Date(scheda.updatedAt).toLocaleString('it-IT')   : null,
+        ratings: {
+          soft:  Object.keys(scheda.softSkills || {}).length,
+          hard:  Object.keys(scheda.hardSkills || {}).length,
+          kpi:   Object.keys(scheda.kpi || {}).length,
+          ruota: Object.keys(scheda.ruota || {}).length
+        }
+      };
+    });
+  });
+  el.textContent = Object.keys(summary).length === 0
+    ? '(nessuna scheda salvata per ' + state.year + '/' + state.quarter + ')'
+    : JSON.stringify(summary, null, 2);
+};
+
+window.wipeAllSchede = async function() {
+  if (!confirm('Cancellare TUTTE le schede di ' + state.year + ' ' + state.quarter + '? Operazione non reversibile.')) return;
+  try {
+    await window.firebaseReady;
+    await window.firebaseDB.remove(window.firebaseDB.ref('schede/' + state.year + '/' + state.quarter));
+    Object.keys(localStorage).forEach(function(k) {
+      if (k.indexOf('colloquiteam_cache/' + state.year + '/' + state.quarter + '/') === 0) localStorage.removeItem(k);
+    });
+    toast('Schede del trimestre cancellate');
+    reloadDebugDump();
+  } catch (err) {
+    toast('Errore: ' + err.message);
+  }
+};
+
+// ========================================================================
+// PLACEHOLDER + TOAST + BOOT
+// ========================================================================
+function renderPlaceholder(title, sub) {
+  document.getElementById('saveStatus').style.display = 'none';
+  document.getElementById('appMain').innerHTML =
+    '<div class="placeholder-page"><h2>' + title + '</h2><p>' + sub + '</p>' +
+    '<p style="margin-top:24px;"><a href="#/home" class="btn-secondary">&larr; Torna alla home</a></p></div>';
+}
+
+function toast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(function() { t.classList.remove('show'); }, 2200);
+}
+
+init();
+</script>
+
+</body>
+</html>

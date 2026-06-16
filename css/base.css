@@ -1,0 +1,15 @@
+/* ColloquiTeam · base.css
+   Typography, body, animazioni globali. */
+
+body {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: #fff;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; }
+
+@keyframes pulse { 50% { opacity: .4; } }

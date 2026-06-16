@@ -1,0 +1,45 @@
+/* ColloquiTeam · home.css
+   Home utente e dashboard admin. */
+
+.home-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 22px; }
+.home-card .scheda-stato {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+.scheda-stato.bozza { background: var(--amber); color: white; }
+.scheda-stato.inviata { background: var(--sage); color: white; }
+.scheda-stato.vuota { background: var(--rule-soft); color: var(--ink-soft); }
+
+.home-card h2 {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 14px 0 8px;
+  letter-spacing: -.01em;
+}
+.home-card p { color: var(--ink-soft); font-size: 14px; margin-bottom: 18px; }
+
+.trim-picker {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0 18px;
+}
+.trim-btn {
+  flex: 1;
+  background: white;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.trim-btn:hover { border-color: var(--accent); color: var(--accent); }
+.trim-btn.active { background: var(--accent); color: white; border-color: var(--accent); }

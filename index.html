@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!--
+  ColloquiTeam · SPA per schede colloquio trimestrali
+  ==================================================================
+  Deploy target: https://dexccm.github.io/ColloquiAreaCcm/
+
+  Architettura (V0.2 — refactored):
+    index.html        struttura DOM + linker (questo file)
+    css/              tokens, base, login, shell, home, form,
+                      components, responsive
+    js/firebase-init.js   bootstrap Firebase Compat SDK
+    js/data/          MOCK_USERS, templates skill (Quadient/Papyrus)
+    js/core/          state, storage, connection, auth, router
+    js/ui/            shell, home, autoval, team, debug
+    js/main.js        boot
+
+  Tutti gli script sono caricati con `defer`: niente ES modules, così
+  l'app funziona anche aperta da file:// (test locale doppio click)
+  oltre che da http(s):// (GitHub Pages).
+  firebase-init.js risolve `window.firebaseReady` quando il SDK è
+  pronto; tutti i file applicativi fanno `await window.firebaseReady`
+  prima di toccare il DB.
+-->
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ColloquiTeam · Schede trimestrali</title>
+
+  <!-- Favicon SVG (radar performance, palette V3 ad alto contrasto) -->
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="apple-touch-icon" href="assets/favicon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheet bundle (ordine = cascade voluta) -->
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/login.css">
+  <link rel="stylesheet" href="css/shell.css">
+  <link rel="stylesheet" href="css/home.css">
+  <link rel="stylesheet" href="css/form.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/colloquio.css">
+  <link rel="stylesheet" href="css/responsive.css">
+
+  <!-- Promise risolta dall'init Firebase (deve esistere PRIMA degli script) -->
+  <script>
+    window.firebaseReady = new Promise((resolve) => { window._firebaseReadyResolve = resolve; });
+  </script>
+
+  <!-- Firebase Compat SDK: caricato come <script> globale (NON modulo),
+       così la pagina funziona sia in locale (file://) sia in produzione. -->
+  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script defer src="js/firebase-init.js"></script>
+
+  <!-- Chart.js (UMD) — radar della Ruota delle Performance nella vista Colloquio -->
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- MSAL.js v2 (UMD) — login Microsoft / Azure AD -->
+  <script defer src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+
+  <!-- Catena applicativa: defer mantiene l'ordine di esecuzione -->
+  <script defer src="js/data/mock-users.js"></script>
+  <script defer src="js/data/templates.js"></script>
+  <script defer src="js/core/state.js"></script>
+  <script defer src="js/core/storage.js"></script>
+  <script defer src="js/core/connection.js"></script>
+  <script defer src="js/core/users.js"></script>
+  <script defer src="js/core/msal-config.js"></script>
+  <script defer src="js/core/auth.js"></script>
+  <script defer src="js/core/router.js"></script>
+  <script defer src="js/ui/shell.js"></script>
+  <script defer src="js/ui/home.js"></script>
+  <script defer src="js/ui/autoval.js"></script>
+  <script defer src="js/ui/team.js"></script>
+  <script defer src="js/ui/colloquio.js"></script>
+  <script defer src="js/ui/debug.js"></script>
+  <script defer src="js/main.js"></script>
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       LOGIN SCREEN
+       ════════════════════════════════════════════════════════════════ -->
+  <div id="login-screen">
+    <div class="login-card">
+      <img src="assets/logo.svg" alt="ColloquiTeam" class="login-logo" width="96" height="96">
+      <div class="login-eyebrow">Colloqui Trimestrali · 2026</div>
+      <div class="login-title">Area CCM -<span class="accent">Colloqui Team</span></div>
+      <div class="login-sub">Schede di valutazione · Quadient &amp; Papyrus</div>
+
+      <button class="login-real-btn" id="msalLoginBtn">
+        🔒 Accedi con Microsoft
+      </button>
+
+      <!-- ============================================================
+           MOCK LOGIN · solo modalità sviluppo
+           ------------------------------------------------------------
+           Mantenuto nel DOM ma nascosto: viene mostrato da main.js
+           SOLO se l'URL contiene ?dev=1 oppure window.DEV_MODE = true.
+           In produzione Microsoft è l'unica via di accesso.
+           ============================================================ -->
+      <div class="login-mock-block" style="display:none;">
+        <div class="login-divider">Mock login · solo dev</div>
+        <div class="mock-users" id="mockUsersList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       APP SHELL
+       ════════════════════════════════════════════════════════════════ -->
+  <div id="app-shell" hidden>
+    <header class="app-header">
+      <a href="#/home" class="brand">
+        <img src="assets/favicon.svg" alt="" class="brand-logo" width="24" height="24" aria-hidden="true">
+        Colloqui<span class="accent">Team</span>
+      </a>
+      <nav class="header-nav" id="headerNav"></nav>
+
+      <div class="period-picker" id="periodPicker" title="Periodo di riferimento">
+        <select id="yearSelect" aria-label="Anno"></select>
+        <select id="quarterSelect" aria-label="Trimestre"></select>
+      </div>
+
+      <div class="save-status" id="saveStatus" style="display:none;">
+        <span class="dot"></span>
+        <span class="label">Tutto salvato</span>
+      </div>
+
+      <div class="fb-status connecting" id="fbStatus" title="Stato connessione Firebase">
+        <span class="fb-dot"></span>
+        <span class="fb-label">Connessione…</span>
+      </div>
+
+      <div class="user-chip" id="userChip"></div>
+      <button class="logout-btn" id="logoutBtn">Logout</button>
+    </header>
+
+    <main class="app-main" id="appMain"></main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+</body>
+</html>

@@ -1,0 +1,240 @@
+/* ColloquiTeam · shell.css
+   Shell applicativa: header, layout principale, indicatori di stato. */
+
+#app-shell { min-height: 100vh; background: white; }
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: white;
+  border-bottom: 1px solid var(--rule-soft);
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.brand {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--ink);
+  text-decoration: none;
+  margin-right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand .accent { color: var(--accent); }
+.brand-logo {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.header-nav {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+.nav-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: all .15s ease;
+  letter-spacing: .02em;
+}
+.nav-link:hover { background: var(--paper); color: var(--accent); }
+.nav-link.active { background: var(--accent-soft); color: var(--accent); }
+
+/* ── Period picker (anno + trimestre globale) ── */
+.period-picker {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.period-picker select {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 5px 22px 5px 10px;
+  border: 1px solid var(--rule-soft);
+  border-radius: 8px;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--accent) 50%),
+    linear-gradient(135deg, var(--accent) 50%, transparent 50%);
+  background-position: calc(100% - 11px) 50%, calc(100% - 7px) 50%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  color: var(--ink);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: all .15s ease;
+}
+.period-picker select:hover { border-color: var(--accent); }
+.period-picker select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.period-reset {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 5px 10px;
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all .15s ease;
+  margin-left: 2px;
+}
+.period-reset:hover {
+  background: var(--accent);
+  color: white;
+  border-style: solid;
+}
+
+.period-glossary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--rule-soft);
+  background: transparent;
+  color: var(--ink-mute);
+  font-size: 13px;
+  cursor: help;
+  margin-left: 2px;
+  transition: all .15s ease;
+}
+.period-glossary:hover {
+  background: var(--paper);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.period-picker select:disabled {
+  opacity: .85;
+  cursor: not-allowed;
+  background-image: none;
+  padding-right: 10px;
+}
+
+.save-status {
+  font-size: 12px;
+  color: var(--ink-mute);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.save-status .dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--sage);
+  transition: background .2s;
+}
+.save-status.dirty .dot { background: var(--amber); }
+.save-status.saving .dot { background: var(--accent); animation: pulse 1s ease infinite; }
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 14px;
+  background: var(--paper);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.role-badge {
+  font-size: 10px;
+  letter-spacing: .1em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.role-badge.admin { background: var(--sage); color: white; }
+.role-badge.user { background: var(--accent-soft); color: var(--accent); }
+.logout-btn {
+  background: white;
+  border: 1px solid var(--rule-soft);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-weight: 600;
+}
+.logout-btn:hover { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+
+/* ── Firebase connection indicator ── */
+.fb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  letter-spacing: .02em;
+}
+.fb-status .fb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-mute); }
+.fb-status.connected { color: var(--sage); border-color: var(--sage-soft); }
+.fb-status.connected .fb-dot { background: var(--sage); }
+.fb-status.connecting { color: var(--amber); }
+.fb-status.connecting .fb-dot { background: var(--amber); animation: pulse 1.2s ease infinite; }
+.fb-status.error { color: #b91c1c; border-color: #fca5a5; background: #fef2f2; }
+.fb-status.error .fb-dot { background: #b91c1c; }
+.fb-status.offline { color: var(--ink-mute); }
+.fb-status.offline .fb-dot { background: var(--ink-mute); }
+
+/* ── Main layout ── */
+.app-main { max-width: 1280px; margin: 0 auto; padding: 28px; }
+
+.card {
+  background: white;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius);
+  padding: 24px 26px;
+  box-shadow: var(--shadow-sm);
+}
+
+.page-head { margin-bottom: 28px; }
+.page-eyebrow {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 11px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.page-title {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--ink);
+}
+.page-title .accent { color: var(--accent); }
+.page-sub {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+  font-style: italic;
+}

@@ -1,0 +1,41 @@
+/* ColloquiTeam · responsive.css
+   Adattamenti mobile / tablet. */
+
+@media (max-width: 900px) {
+  .autoval-layout { grid-template-columns: 1fr; }
+  .stepper { position: relative; top: 0; }
+  .step-item { display: inline-flex; margin-right: 4px; margin-bottom: 4px; }
+  .stepper-title { display: none; }
+  .home-grid { grid-template-columns: 1fr; }
+  .app-header { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+  .header-nav { width: 100%; order: 3; overflow-x: auto; }
+  .app-main { padding: 18px; }
+  .form-section { padding: 22px 18px; }
+  .submit-bar { margin: 16px -18px -22px; padding: 14px 18px; flex-direction: column; align-items: stretch; }
+
+  /* Su mobile la riga della header tabella può wrappare per recuperare spazio,
+     altrimenti le colonne risulterebbero troppo strette. */
+  .rating-cell { width: 70px; min-width: 60px; }
+  .rating-table thead th {
+    white-space: normal;
+    font-size: 8.5px;
+    padding: 8px 3px 10px;
+  }
+
+  /* Colloquio: radar a tutta larghezza, stats sotto */
+  .ruota-grid { grid-template-columns: 1fr; }
+  .ruota-canvas-wrap { height: 380px; }
+  .colloquio-legend { font-size: 12px; gap: 14px; padding: 10px 12px; }
+  .compare-section { padding: 18px 16px; }
+  .compare-table { font-size: 12.5px; }
+}
+
+@media (max-width: 560px) {
+  .app-main { padding: 14px; }
+  .form-section { padding: 18px 14px; }
+  .section-num { font-size: 22px; }
+  .section-title { font-size: 18px; }
+  .rating-cell { width: 56px; min-width: 50px; }
+  .rating-cell label { width: 22px; height: 22px; }
+  .ruota-canvas-wrap { height: 320px; }
+}
