@@ -99,7 +99,7 @@ window.RUOTA_MACRO_QUADIENT = [
   { titolo: 'Autonomia & iniziativa',    voci: 'Proattività · Autonomia · Coinvolgimento' },
   { titolo: 'Quadient core',             voci: 'Inspire · Interactive · Evolve · Scaler' },
   { titolo: 'Scripting & integrazioni',  voci: 'Scripting Inspire · Extra' },
-  { titolo: 'Trasversali tecniche',      voci: 'SQL · Accessibilità · Business English' },
+  { titolo: 'Competenze trasversali',      voci: 'SQL · Accessibilità · Business English' },
   { titolo: 'Qualità della consegna',    voci: 'Codice · Documentazione · Manutenibilità' }
 ];
 
@@ -110,7 +110,7 @@ window.RUOTA_MACRO_PAPYRUS = [
   { titolo: 'Autonomia & iniziativa',    voci: 'Proattività · Autonomia · Coinvolgimento' },
   { titolo: 'Papyrus core',              voci: 'Designer · Convertitore · Tools Vari' },
   { titolo: 'Scripting & integrazioni',  voci: 'Scripting Papyrus WebRepo · Extra' },
-  { titolo: 'Trasversali tecniche',      voci: 'SQL · Accessibilità · Business English' },
+  { titolo: 'Competenze trasversali',      voci: 'SQL · Accessibilità · Business English' },
   { titolo: 'Qualità della consegna',    voci: 'Codice · Documentazione · Manutenibilità' }
 ];
 
@@ -129,7 +129,7 @@ window.RUOTA_MACRO   = window.RUOTA_MACRO_QUADIENT;
 //   3 = Autonomia & iniziativa
 //   4 = Core (Quadient o Papyrus)
 //   5 = Scripting & integrazioni
-//   6 = Trasversali tecniche
+//   6 = Competenze trasversali
 //   7 = Qualità della consegna
 //
 // Ogni array mapping ha lunghezza pari alla rispettiva lista voci.
@@ -175,9 +175,9 @@ window.RUOTA_MAPPING = {
     5,  // 4  Scripting Designer                 → Scripting & integrazioni
     5,  // 5  Scripting Interactive              → Scripting & integrazioni
     4,  // 6  Inspire Evolve                     → Quadient core
-    6,  // 7  Utilizzo AI                        → Trasversali tecniche
-    6,  // 8  SQL · gestione DB (SSMS)           → Trasversali tecniche
-    6,  // 9  Accessibilità documenti — Inspire  → Trasversali tecniche
+    6,  // 7  Utilizzo AI                        → Competenze trasversali
+    6,  // 8  SQL · gestione DB (SSMS)           → Competenze trasversali
+    6,  // 9  Accessibilità documenti — Inspire  → Competenze trasversali
     7   // 10 Qualità del codice                 → Qualità della consegna
   ],
   // Hard Skills Papyrus (11 voci)
@@ -188,10 +188,10 @@ window.RUOTA_MAPPING = {
     4,  // 3  Papyrus strumenti di formattazione     → Papyrus core
     5,  // 4  Setup ambiente operativo               → Scripting & integrazioni
     5,  // 5  Programmazione batch                   → Scripting & integrazioni
-    6,  // 6  Training neo risorse                   → Trasversali tecniche
-    6,  // 7  Utilizzo AI                            → Trasversali tecniche
-    6,  // 8  Gestione DB (SSMS)                     → Trasversali tecniche
-    6,  // 9  Accessibilità                          → Trasversali tecniche
+    6,  // 6  Training neo risorse                   → Competenze trasversali
+    6,  // 7  Utilizzo AI                            → Competenze trasversali
+    6,  // 8  Gestione DB (SSMS)                     → Competenze trasversali
+    6,  // 9  Accessibilità                          → Competenze trasversali
     7   // 10 Qualità del codice                     → Qualità della consegna
   ]
 };
