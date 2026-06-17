@@ -1,3 +1,4 @@
+console.log('[load] router');
 /**
  * ColloquiTeam · core/router.js
  * -------------------------------------------------------------------

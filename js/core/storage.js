@@ -1,3 +1,4 @@
+console.log('[load] storage');
 /**
  * ColloquiTeam · core/storage.js
  * -------------------------------------------------------------------

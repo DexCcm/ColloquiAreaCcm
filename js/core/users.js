@@ -1,3 +1,4 @@
+console.log('[load] users');
 /**
  * ColloquiTeam · core/users.js
  * -------------------------------------------------------------------

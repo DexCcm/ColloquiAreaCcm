@@ -1,3 +1,4 @@
+console.log('[load] state');
 /**
  * ColloquiTeam · core/state.js
  * -------------------------------------------------------------------

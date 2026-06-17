@@ -1,3 +1,4 @@
+console.log('[load] connection');
 /**
  * ColloquiTeam · core/connection.js
  * -------------------------------------------------------------------

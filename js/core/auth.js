@@ -1,3 +1,4 @@
+console.log('[load] auth');
 /**
  * ColloquiTeam · core/auth.js
  * Auth con Firebase Authentication + Microsoft Identity Provider.
