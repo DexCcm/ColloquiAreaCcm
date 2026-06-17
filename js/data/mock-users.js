@@ -1,3 +1,4 @@
+console.log('[load] mock-users');
 /**
  * ColloquiTeam · data/mock-users.js
  * -------------------------------------------------------------------

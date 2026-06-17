@@ -1,3 +1,4 @@
+console.log('[load] templates');
 /**
  * ColloquiTeam · data/templates.js
  * -------------------------------------------------------------------
