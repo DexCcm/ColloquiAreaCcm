@@ -3,16 +3,16 @@
  * -------------------------------------------------------------------
  * Bootstrap connessione Firebase + indicatore visuale di stato.
  *
- * IMPORTANTE: aspetto che Firebase Auth determini lo stato iniziale
- * (persistenza da IndexedDB o redirect Microsoft appena tornato) PRIMA
- * di considerare l'anonymous boot bridge. Altrimenti signInAnonymously
- * sovrascriverebbe la sessione Microsoft fresca dal redirect.
- *
- * Anonymous boot bridge:
- *   - le Security Rules permettono ai soli autenticati di leggere /users
- *   - se non c'è una sessione cached/redirect, signInAnonymously dà il
- *     minimo permesso necessario per leggere /users (per il match email→slug)
- *   - quando l'utente clicca Microsoft, signInWithRedirect sostituisce l'anon
+ * Ordine CRITICO:
+ *   1. await firebaseReady
+ *   2. await getRedirectResult()  ← se torno da Microsoft, qui Firebase
+ *      processa il credenziale e currentUser diventa l'utente Microsoft.
+ *      DEVE essere chiamato PRIMA di qualsiasi onAuthStateChanged listener,
+ *      altrimenti l'utente anonimo cached vince e Microsoft viene perso.
+ *   3. controllo currentUser:
+ *      - se Microsoft attivo → lascio così
+ *      - se anon cached     → lascio così
+ *      - se nessuno         → signInAnonymously (boot bridge per /users)
  */
 window.Connection = {
   async init() {
@@ -20,25 +20,27 @@ window.Connection = {
     try {
       await window.firebaseReady;
 
-      // ⚠ Aspetto che Firebase Auth determini lo stato iniziale (IndexedDB
-      // load + redirect result). onAuthStateChanged "one-shot" è il modo
-      // ufficiale di sapere quando questo è completo.
-      await new Promise(function (resolve) {
-        const unsub = window.firebaseAuth.onAuthStateChanged(function () {
-          unsub();
-          resolve();
-        });
-      });
+      // 1) Captura eventuale credenziale Microsoft appena tornato da redirect.
+      //    Importante: questo è il primo touch di firebase.auth(), così
+      //    Firebase processa il pending OAuth PRIMA di settle su altri user.
+      try {
+        const r = await window.firebaseAuth.getRedirectResult();
+        if (r && r.user) {
+          console.log('[Connection] redirect Microsoft capturato:', r.user.email);
+        }
+      } catch (err) {
+        console.warn('[Connection] getRedirectResult error:', err.code, err.message);
+      }
 
+      // 2) Stato finale auth dopo redirect processing
       const existing = window.firebaseAuth.currentUser;
       if (!existing) {
-        // Nessuna sessione: anon boot bridge per poter leggere /users
         const cred = await window.firebaseAuth.signInAnonymously();
         console.log('[Connection] boot bridge anonymous, uid:', cred.user.uid);
       } else if (existing.isAnonymous) {
         console.log('[Connection] anon cached, uid:', existing.uid);
       } else {
-        console.log('[Connection] sessione Microsoft persistita:', existing.email);
+        console.log('[Connection] sessione Microsoft:', existing.email);
       }
 
       window.Storage.online = true;
