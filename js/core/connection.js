@@ -3,16 +3,16 @@
  * -------------------------------------------------------------------
  * Bootstrap connessione Firebase + indicatore visuale di stato.
  *
- * Sign-in anonimo come "boot bridge":
- *   - le Security Rules permettono ai soli autenticati di leggere /users
- *   - prima del login Microsoft serve poter leggere /users (per fare il
- *     match email→slug post-login)
- *   - la sessione anonima viene poi sostituita dall'identità Microsoft
- *     quando l'utente clicca "Accedi con Microsoft" (signInWithRedirect)
+ * IMPORTANTE: aspetto che Firebase Auth determini lo stato iniziale
+ * (persistenza da IndexedDB o redirect Microsoft appena tornato) PRIMA
+ * di considerare l'anonymous boot bridge. Altrimenti signInAnonymously
+ * sovrascriverebbe la sessione Microsoft fresca dal redirect.
  *
- * Le Rules garantiscono che un utente anonimo possa SOLO leggere /users.
- * Tutti gli altri path (schede, uidIndex) restano inaccessibili finché
- * non c'è un'identità Microsoft con uidIndex auto-claimato.
+ * Anonymous boot bridge:
+ *   - le Security Rules permettono ai soli autenticati di leggere /users
+ *   - se non c'è una sessione cached/redirect, signInAnonymously dà il
+ *     minimo permesso necessario per leggere /users (per il match email→slug)
+ *   - quando l'utente clicca Microsoft, signInWithRedirect sostituisce l'anon
  */
 window.Connection = {
   async init() {
@@ -20,18 +20,33 @@ window.Connection = {
     try {
       await window.firebaseReady;
 
-      // Se già loggato (Microsoft), saltiamo l'anonima
+      // ⚠ Aspetto che Firebase Auth determini lo stato iniziale (IndexedDB
+      // load + redirect result). onAuthStateChanged "one-shot" è il modo
+      // ufficiale di sapere quando questo è completo.
+      await new Promise(function (resolve) {
+        const unsub = window.firebaseAuth.onAuthStateChanged(function () {
+          unsub();
+          resolve();
+        });
+      });
+
       const existing = window.firebaseAuth.currentUser;
       if (!existing) {
+        // Nessuna sessione: anon boot bridge per poter leggere /users
         const cred = await window.firebaseAuth.signInAnonymously();
         console.log('[Connection] boot bridge anonymous, uid:', cred.user.uid);
+      } else if (existing.isAnonymous) {
+        console.log('[Connection] anon cached, uid:', existing.uid);
+      } else {
+        console.log('[Connection] sessione Microsoft persistita:', existing.email);
       }
 
       window.Storage.online = true;
-      const displayUid = (window.firebaseAuth.currentUser || {}).uid || '???';
-      this.setStatus('connected', 'Online · ' + displayUid.slice(0, 8));
+      const u0 = window.firebaseAuth.currentUser;
+      const tag0 = (u0 && !u0.isAnonymous) ? (u0.email || u0.uid.slice(0, 8)) : 'anon';
+      this.setStatus('connected', 'Online · ' + tag0);
 
-      window.firebaseAuth.onAuthStateChanged(function(user) {
+      window.firebaseAuth.onAuthStateChanged(function (user) {
         if (!user) {
           window.Storage.online = false;
           window.Connection.setStatus('offline', 'Disconnesso');
@@ -42,8 +57,8 @@ window.Connection = {
         window.Connection.setStatus('connected', 'Online · ' + tag);
       });
 
-      window.addEventListener('online',  function() { window.Connection.setStatus('connected', 'Online'); });
-      window.addEventListener('offline', function() { window.Connection.setStatus('offline', 'Offline · cache locale'); });
+      window.addEventListener('online',  function () { window.Connection.setStatus('connected', 'Online'); });
+      window.addEventListener('offline', function () { window.Connection.setStatus('offline', 'Offline · cache locale'); });
     } catch (err) {
       window.Storage.online = false;
       this.setStatus('error', 'Errore Firebase');

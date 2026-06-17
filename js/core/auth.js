@@ -1,21 +1,6 @@
 /**
  * ColloquiTeam · core/auth.js
- * -------------------------------------------------------------------
- * Auth con Firebase Authentication + Microsoft Identity Provider (OIDC).
- *
- * Strategia:
- *   - firebase.auth() è l'unica fonte di verità
- *   - signInWithRedirect verso il provider Microsoft (configurato in Firebase Console)
- *   - dopo login, _bindUserFromFirebase fa il match email→slug su /users
- *     e auto-claima /uidIndex/{auth.uid}: slug. Le Security Rules useranno
- *     uidIndex per risalire al ruolo dell'utente, server-side.
- *
- * API pubblica:
- *   Auth.bootAuth()             ← boot, gestisce redirect + cache session
- *   Auth.loginWithMicrosoft()   ← signInWithRedirect verso Microsoft
- *   Auth.logout()               ← signOut Firebase + UI reset
- *   Auth.login(slug)            ← MOCK dev (con ?dev=1 e rules permissive)
- *   Auth.restoreSession()       ← restore mock per dev-mode
+ * Auth con Firebase Authentication + Microsoft Identity Provider.
  */
 window.Auth = {
   _provider: null,
@@ -34,12 +19,17 @@ window.Auth = {
     });
     this._provider.addScope('email');
     this._provider.addScope('profile');
+    console.log('[Auth] provider Microsoft inizializzato');
 
-    // 1) Eventuale ritorno da loginRedirect
+    // 1) getRedirectResult: catpura il credenziale appena tornato da Microsoft.
+    //    Connection.init ha già aspettato lo stato iniziale, quindi qui è
+    //    semplicemente un fetch del risultato (può essere null se nessun redirect).
     try {
       const result = await firebase.auth().getRedirectResult();
       if (result && result.user) {
         console.log('[Auth] redirect login OK:', result.user.email);
+      } else {
+        console.log('[Auth] nessun redirect result (visita iniziale o sessione cached)');
       }
     } catch (err) {
       console.error('[Auth] getRedirectResult error:', err.code, err.message);
@@ -48,40 +38,30 @@ window.Auth = {
       }
     }
 
-    // 2) Sincronizzo con auth state. Ignoriamo deliberatamente l'utente
-    //    ANONIMO (boot bridge in connection.js): è solo un permesso minimo
-    //    per leggere /users, non è una vera sessione applicativa.
-    //    Solo l'identità Microsoft (con email) trigghera il bind.
-    return new Promise(function(resolve) {
-      const unsub = firebase.auth().onAuthStateChanged(async function(fbUser) {
-        if (!fbUser || fbUser.isAnonymous) {
-          unsub();
-          resolve(false);
-          return;
-        }
-        unsub();
-        const ok = await window.Auth._bindUserFromFirebase(fbUser);
-        resolve(ok);
-      });
-    });
+    // 2) Se c'è già un utente Microsoft (da redirect o da cache), bind subito.
+    const cur = firebase.auth().currentUser;
+    if (cur && !cur.isAnonymous && cur.email) {
+      console.log('[Auth] utente Microsoft attivo:', cur.email, '→ bind');
+      return await window.Auth._bindUserFromFirebase(cur);
+    }
+    console.log('[Auth] nessun utente Microsoft attivo, attendo click sul pulsante');
+    return false;
   },
 
-  loginWithMicrosoft: function() {
+  loginWithMicrosoft: function () {
     if (!this._provider) {
       alert('Auth non inizializzato. Ricarica la pagina.');
       return;
     }
+    console.log('[Auth] avvio signInWithRedirect verso Microsoft');
     firebase.auth().signInWithRedirect(this._provider)
-      .catch(function(err) {
+      .catch(function (err) {
         console.error('[Auth] signInWithRedirect error:', err);
         alert('Errore di login Microsoft: ' + (err.message || err.code));
       });
   },
 
-  /**
-   * Risale dall'utente Firebase a quello applicativo, e auto-claima uidIndex.
-   */
-  _bindUserFromFirebase: async function(fbUser) {
+  _bindUserFromFirebase: async function (fbUser) {
     const email = (fbUser.email || '').toLowerCase();
     if (!email) {
       console.error('[Auth] utente Firebase senza email');
@@ -89,23 +69,22 @@ window.Auth = {
       return false;
     }
 
-    // 1. Lookup slug dall'email (client-side su /users)
     const u = window.Users && window.Users.findByEmail(email);
     const slug = u && u.slug;
-
     if (!slug) {
-      alert('Utente non autorizzato. Email: ' + email + ' — Non presente in /users. Contatta admin.');
+      alert('Utente non autorizzato.\n\nEmail: ' + email + '\n\nNon presente in /users. Contatta admin.');
       await firebase.auth().signOut();
       return false;
     }
 
-    // 2. Auto-claim /uidIndex/{auth.uid}: slug
     try {
       const ref = window.firebaseDB.ref('uidIndex/' + fbUser.uid);
       const snap = await window.firebaseDB.get(ref);
       if (!snap.exists() || snap.val() !== slug) {
         await window.firebaseDB.set(ref, slug);
         console.log('[Auth] uidIndex claim:', fbUser.uid, '->', slug);
+      } else {
+        console.log('[Auth] uidIndex già claimato per', slug);
       }
     } catch (err) {
       console.warn('[Auth] uidIndex claim non scritto:', err.code || err.message);
@@ -116,8 +95,7 @@ window.Auth = {
     return true;
   },
 
-  /** Login mock (dev only). */
-  login: function(userSlug) {
+  login: function (userSlug) {
     const user = window.Users.findBySlug(userSlug);
     if (!user) { console.error('[Auth] slug non trovato:', userSlug); return; }
     window.state.currentUser = user;
@@ -125,7 +103,7 @@ window.Auth = {
     window.showApp();
   },
 
-  logout: async function() {
+  logout: async function () {
     window.state.currentUser = null;
     sessionStorage.removeItem('colloquiteam_mockUser');
     try {
@@ -140,7 +118,7 @@ window.Auth = {
     document.getElementById('app-shell').hidden = true;
   },
 
-  restoreSession: function() {
+  restoreSession: function () {
     const dev = window.DEV_MODE === true || new URLSearchParams(location.search).get('dev') === '1';
     if (!dev) return false;
     const slug = sessionStorage.getItem('colloquiteam_mockUser');
