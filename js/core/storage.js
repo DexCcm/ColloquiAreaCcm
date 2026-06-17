@@ -65,9 +65,13 @@ window.Storage = {
       ]);
       const raw = snap.val();
       if (raw) {
-        const val = await this._maybeDecrypt(raw, tipo);
-        localStorage.setItem(cacheKey, JSON.stringify(val));   // cache in chiaro
-        console.log('[Storage] load FB OK:', path, raw._enc ? '(decrypted)' : '');
+        // === CIFRATURA DISATTIVATA ===
+        // Per riabilitare la decifratura della valutazione, decommenta la riga
+        // sotto e commenta la successiva `const val = raw;`
+        // const val = await this._maybeDecrypt(raw, tipo);
+        const val = raw;
+        localStorage.setItem(cacheKey, JSON.stringify(val));
+        console.log('[Storage] load FB OK:', path);
         return val;
       }
       localStorage.removeItem(cacheKey);
@@ -90,12 +94,16 @@ window.Storage = {
     // 1. cache locale in chiaro (più rapido, l'utente è già autorizzato)
     localStorage.setItem(cacheKey, JSON.stringify(data));
 
-    // 2. scrittura Firebase: SE tipo === 'valutazione', cifra prima
+    // 2. scrittura Firebase (cifratura disattivata — riabilita decommentando)
     try {
       await window.firebaseReady;
-      const payload = await this._maybeEncrypt(data, tipo);
+      // === CIFRATURA DISATTIVATA ===
+      // Per riabilitare la cifratura della valutazione prima del write,
+      // decommenta la riga sotto e commenta `const payload = data;`
+      // const payload = await this._maybeEncrypt(data, tipo);
+      const payload = data;
       await window.firebaseDB.set(window.firebaseDB.ref(path), payload);
-      console.log('[Storage] save FB OK:', path, payload._enc ? '(encrypted)' : '');
+      console.log('[Storage] save FB OK:', path);
       return { ok: true, synced: true };
     } catch (err) {
       console.warn('[Storage] save FB fallito (dato in cache):', err.message, path);
@@ -121,7 +129,10 @@ window.Storage = {
       await window.firebaseReady;
       const snap = await window.firebaseDB.get(window.firebaseDB.ref('schede/' + year + '/' + quarter));
       const raw = snap.val() || {};
-      // Decifro eventuali blob 'valutazione' per ogni utente
+      // === CIFRATURA DISATTIVATA ===
+      // Per riabilitare la decifratura dei blob valutazione nel debug panel,
+      // decommenta il blocco sotto.
+      /*
       if (window.Crypto) {
         for (const slug of Object.keys(raw)) {
           if (raw[slug] && raw[slug].valutazione && raw[slug].valutazione._enc) {
@@ -130,12 +141,14 @@ window.Storage = {
           }
         }
       }
+      */
       return raw;
     } catch (err) {
       console.error('[Storage] readBranch fallito:', err.message);
       return null;
     }
   },
+
 
   emptyScheda() {
     return {
