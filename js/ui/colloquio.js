@@ -1,3 +1,4 @@
+console.log('[load] colloquio');
 /**
  * ColloquiTeam · ui/colloquio.js
  * Vista Colloquio admin: confronto auto vs val + ruota Chart.js.

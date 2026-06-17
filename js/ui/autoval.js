@@ -1,3 +1,4 @@
+console.log('[load] autoval');
 /**
  * ColloquiTeam · ui/autoval.js
  * -------------------------------------------------------------------
@@ -788,7 +789,6 @@
       '<div class="modal-card">' +
         '<h3>Invio definitivo</h3>' +
         '<p>Stai per inviare la scheda. <b>Dopo l&rsquo;invio non potrai pi&ugrave; modificarla.</b><br>Sicuro di voler procedere?</p>' +
-        
         note +
         '<div class="modal-actions">' +
           '<button class="btn-secondary" onclick="this.closest(\'.modal-backdrop\').remove()">Annulla</button>' +
