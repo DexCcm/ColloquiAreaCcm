@@ -61,16 +61,18 @@
   <!-- Chart.js (UMD) — radar della Ruota delle Performance nella vista Colloquio -->
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-  <!-- Auth Microsoft gestita da firebase-auth (vedi js/core/auth.js).
-       MSAL.js non più necessario: usiamo firebase.auth.OAuthProvider('microsoft.com'). -->
+  <!-- MSAL.js v2 (UMD) — login Microsoft / Azure AD -->
+  <script defer src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 
   <!-- Catena applicativa: defer mantiene l'ordine di esecuzione -->
   <script defer src="js/data/mock-users.js"></script>
   <script defer src="js/data/templates.js"></script>
   <script defer src="js/core/state.js"></script>
+  <script defer src="js/core/crypto.js"></script>
   <script defer src="js/core/storage.js"></script>
   <script defer src="js/core/connection.js"></script>
   <script defer src="js/core/users.js"></script>
+  <script defer src="js/core/msal-config.js"></script>
   <script defer src="js/core/auth.js"></script>
   <script defer src="js/core/router.js"></script>
   <script defer src="js/ui/shell.js"></script>

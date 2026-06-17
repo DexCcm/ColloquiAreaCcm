@@ -1,0 +1,30 @@
+{
+  "rules": {
+    "$other": {
+      ".read": false,
+      ".write": false
+    },
+
+    "schemaVersion": {
+      ".read": "auth != null"
+    },
+
+    "users": {
+      ".read":  "auth != null",
+      ".write": false
+    },
+
+    "schede": {
+      "$year": {
+        "$quarter": {
+          "$slug": {
+            "$tipo": {
+              ".read":  "auth != null",
+              ".write": "auth != null"
+            }
+          }
+        }
+      }
+    }
+  }
+}
