@@ -1,18 +1,23 @@
 console.log('[load] connection');
-/**
- * ColloquiTeam · core/connection.js
- * Bootstrap connessione Firebase + indicatore visuale.
- * Versione originale: signInAnonymously al boot.
- */
 window.Connection = {
   async init() {
     this.setStatus('connecting', 'Connessione…');
+    const withTimeout = (p, ms, label) =>
+      Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout:' + label)), ms))]);
+
     try {
-      await window.firebaseReady;
-      const cred = await window.firebaseAuth.signInAnonymously();
-      window.Storage.online = true;
-      this.setStatus('connected', 'Online · ' + cred.user.uid.slice(0, 8));
-      console.log('[Connection] auth anonima ok, uid:', cred.user.uid);
+      await withTimeout(window.firebaseReady, 5000, 'firebaseReady');
+      console.log('[Connection] firebaseReady ok');
+
+      try {
+        const cred = await withTimeout(window.firebaseAuth.signInAnonymously(), 5000, 'signInAnonymously');
+        console.log('[Connection] auth anonima ok, uid:', cred.user.uid);
+        window.Storage.online = true;
+        this.setStatus('connected', 'Online · ' + cred.user.uid.slice(0, 8));
+      } catch (err) {
+        console.error('[Connection] signInAnonymously fallita:', err.message);
+        this.setStatus('error', 'Auth fallita');
+      }
 
       window.firebaseAuth.onAuthStateChanged(function (user) {
         if (!user) {
@@ -26,10 +31,9 @@ window.Connection = {
     } catch (err) {
       window.Storage.online = false;
       this.setStatus('error', 'Errore Firebase');
-      console.error('[Connection] init fallita:', err);
+      console.error('[Connection] init fallita:', err.message);
     }
   },
-
   setStatus(kind, label) {
     const el = document.getElementById('fbStatus');
     if (!el) return;
