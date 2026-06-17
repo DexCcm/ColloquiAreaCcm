@@ -50,11 +50,42 @@ window.Auth = {
       console.log('[Auth] lazy-init MSAL al click');
       this._msal = new msal.PublicClientApplication(window.MSAL_CONFIG);
     }
+
+    // Pulizia stato "interaction_in_progress" residuo da login precedenti
+    // interrotti. È il fix ufficiale per aka.ms/msaljs/browser-errors.
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && (k.indexOf('msal.') === 0 || k.indexOf('msal') !== -1 && k.indexOf('interaction') !== -1)) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(function (k) { sessionStorage.removeItem(k); });
+      // Anche localStorage può avere il flag in alcune config
+      const lsKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf('msal.interaction') !== -1) lsKeys.push(k);
+      }
+      lsKeys.forEach(function (k) { localStorage.removeItem(k); });
+      console.log('[Auth] cleanup interaction flags:', keysToRemove.length + lsKeys.length, 'chiavi rimosse');
+    } catch (e) {
+      console.warn('[Auth] cleanup error:', e);
+    }
+
     console.log('[Auth] avvio loginRedirect verso Microsoft');
     this._msal.loginRedirect({ scopes: window.MSAL_LOGIN_SCOPES || ['openid', 'profile', 'email'] })
       .catch(function (err) {
         console.error('[Auth] loginRedirect error:', err);
-        alert('Errore di login Microsoft: ' + (err.message || err.code));
+        const code = err.errorCode || err.code;
+        if (code === 'interaction_in_progress') {
+          // Ultimo tentativo: cleanup totale e retry
+          sessionStorage.clear();
+          alert('Stato login bloccato. Premi OK e riclicca "Accedi con Microsoft".');
+        } else {
+          alert('Errore di login Microsoft: ' + (err.message || code));
+        }
       });
   },
 
@@ -73,6 +104,7 @@ window.Auth = {
     window.showApp();
     return true;
   },
+
 
   login: function (userSlug) {
     const user = window.Users.findBySlug(userSlug);
