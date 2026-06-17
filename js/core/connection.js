@@ -3,38 +3,46 @@ window.Connection = {
   async init() {
     this.setStatus('connecting', 'Connessione…');
     try {
-      // firebaseReady ha già il log dell'SDK pronto. Se non risolve in 8s c'è
-      // un problema infrastrutturale (CDN giù?), worth segnalare.
       await Promise.race([
         window.firebaseReady,
         new Promise((_, rej) => setTimeout(() => rej(new Error('firebaseReady timeout 8s')), 8000))
       ]);
       console.log('[Connection] firebaseReady ok');
 
-      // signInAnonymously: in Europa di solito risponde in <1s, ma con cold-start
-      // o iframe block può arrivare a 10-15s. Diamo margine di 30s e logghiamo
-      // anche dopo 3s per non lasciare l'utente a guardare il vuoto.
-      console.log('[Connection] signInAnonymously avvio... (max 30s)');
-      const slowWarn = setTimeout(() => console.warn('[Connection] signInAnonymously >3s, sto aspettando...'), 3000);
+      const t0 = performance.now();
+      console.log('[Connection] signInAnonymously avvio... t0=0');
+
+      // Promise originale di Firebase: NON la awaitiamo direttamente.
+      // La osserviamo in background per capire se EVENTUALMENTE risponde,
+      // anche dopo che il nostro timeout l'ha "abbandonata".
+      const signInPromise = window.firebaseAuth.signInAnonymously();
+      signInPromise
+        .then(cred => console.log('[Connection POST] anon OK dopo', Math.round(performance.now()-t0), 'ms, uid:', cred.user.uid))
+        .catch(err => console.error('[Connection POST] anon FAILED dopo', Math.round(performance.now()-t0), 'ms:', err.code || err.message, err));
+
+      const slowWarn = setTimeout(() => console.warn('[Connection] anon >3s, sto aspettando...'), 3000);
       try {
         const cred = await Promise.race([
-          window.firebaseAuth.signInAnonymously(),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 30s')), 30000))
+          signInPromise,
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 15s')), 15000))
         ]);
         clearTimeout(slowWarn);
-        console.log('[Connection] auth anonima ok, uid:', cred.user.uid);
+        console.log('[Connection] anon ok subito:', Math.round(performance.now()-t0), 'ms');
         window.Storage.online = true;
         this.setStatus('connected', 'Online · ' + cred.user.uid.slice(0, 8));
       } catch (err) {
         clearTimeout(slowWarn);
-        console.error('[Connection] signInAnonymously fallita:', err.code || err.message, err);
-        this.setStatus('error', 'Auth fallita');
+        console.warn('[Connection] anon timeout, ma la promise reale è ancora viva (vedrai [POST] quando risponde)');
+        this.setStatus('error', 'Auth tardiva');
       }
 
       window.firebaseAuth.onAuthStateChanged(function (user) {
         if (!user) {
           window.Storage.online = false;
           window.Connection.setStatus('offline', 'Disconnesso');
+        } else {
+          window.Storage.online = true;
+          window.Connection.setStatus('connected', 'Online · ' + (user.uid || '').slice(0, 8));
         }
       });
 
