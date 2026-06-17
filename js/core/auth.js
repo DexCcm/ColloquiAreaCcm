@@ -1,14 +1,7 @@
 console.log('[load] auth');
 /**
  * ColloquiTeam · core/auth.js
- * Auth con MSAL.js (Azure AD) — versione standalone.
- *
- *   Auth.bootAuth()             ← boot, gestisce redirect e cache MSAL
- *   Auth.loginWithMicrosoft()   ← loginRedirect verso Microsoft
- *   Auth.loginByEmail(email)    ← matcha email → /users, apre sessione
- *   Auth.login(slug)            ← scorciatoia mock (solo dev)
- *   Auth.logout()
- *   Auth.restoreSession()
+ * Auth con MSAL.js (Azure AD) — versione standalone con lazy init.
  */
 window.Auth = {
   _msal: null,
@@ -24,6 +17,7 @@ window.Auth = {
     }
 
     this._msal = new msal.PublicClientApplication(window.MSAL_CONFIG);
+    console.log('[Auth] MSAL inizializzato in bootAuth');
 
     try {
       const response = await this._msal.handleRedirectPromise();
@@ -43,10 +37,20 @@ window.Auth = {
   },
 
   loginWithMicrosoft: function () {
+    // Lazy init se bootAuth non ha ancora creato _msal
     if (!this._msal) {
-      alert('Microsoft login non disponibile. Verifica il clientId in msal-config.js');
-      return;
+      if (typeof msal === 'undefined') {
+        alert('MSAL.js non caricato. Ricarica la pagina.');
+        return;
+      }
+      if (!window.MSAL_CONFIG || window.MSAL_CONFIG.auth.clientId === 'REPLACE_ME') {
+        alert('clientId Azure non configurato.');
+        return;
+      }
+      console.log('[Auth] lazy-init MSAL al click');
+      this._msal = new msal.PublicClientApplication(window.MSAL_CONFIG);
     }
+    console.log('[Auth] avvio loginRedirect verso Microsoft');
     this._msal.loginRedirect({ scopes: window.MSAL_LOGIN_SCOPES || ['openid', 'profile', 'email'] })
       .catch(function (err) {
         console.error('[Auth] loginRedirect error:', err);
@@ -57,7 +61,7 @@ window.Auth = {
   loginByEmail: function (email) {
     const user = window.Users.findByEmail(email);
     if (!user) {
-      alert('Utente non autorizzato.\n\nEmail: ' + email + '\n\nNon presente in /users. Contatta admin.');
+      alert('Utente non autorizzato. Email: ' + email + ' — Non presente in /users.');
       if (this._msal) {
         const acc = this._msal.getAllAccounts()[0];
         if (acc) this._msal.logoutRedirect({ account: acc }).catch(function () {});
