@@ -2,20 +2,32 @@ console.log('[load] connection');
 window.Connection = {
   async init() {
     this.setStatus('connecting', 'Connessione…');
-    const withTimeout = (p, ms, label) =>
-      Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout:' + label)), ms))]);
-
     try {
-      await withTimeout(window.firebaseReady, 5000, 'firebaseReady');
+      // firebaseReady ha già il log dell'SDK pronto. Se non risolve in 8s c'è
+      // un problema infrastrutturale (CDN giù?), worth segnalare.
+      await Promise.race([
+        window.firebaseReady,
+        new Promise((_, rej) => setTimeout(() => rej(new Error('firebaseReady timeout 8s')), 8000))
+      ]);
       console.log('[Connection] firebaseReady ok');
 
+      // signInAnonymously: in Europa di solito risponde in <1s, ma con cold-start
+      // o iframe block può arrivare a 10-15s. Diamo margine di 30s e logghiamo
+      // anche dopo 3s per non lasciare l'utente a guardare il vuoto.
+      console.log('[Connection] signInAnonymously avvio... (max 30s)');
+      const slowWarn = setTimeout(() => console.warn('[Connection] signInAnonymously >3s, sto aspettando...'), 3000);
       try {
-        const cred = await withTimeout(window.firebaseAuth.signInAnonymously(), 5000, 'signInAnonymously');
+        const cred = await Promise.race([
+          window.firebaseAuth.signInAnonymously(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 30s')), 30000))
+        ]);
+        clearTimeout(slowWarn);
         console.log('[Connection] auth anonima ok, uid:', cred.user.uid);
         window.Storage.online = true;
         this.setStatus('connected', 'Online · ' + cred.user.uid.slice(0, 8));
       } catch (err) {
-        console.error('[Connection] signInAnonymously fallita:', err.message);
+        clearTimeout(slowWarn);
+        console.error('[Connection] signInAnonymously fallita:', err.code || err.message, err);
         this.setStatus('error', 'Auth fallita');
       }
 
