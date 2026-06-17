@@ -213,28 +213,3 @@
   padding: 24px 26px;
   box-shadow: var(--shadow-sm);
 }
-
-.page-head { margin-bottom: 28px; }
-.page-eyebrow {
-  font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 11px;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  color: var(--ink-mute);
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-.page-title {
-  font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -.02em;
-  color: var(--ink);
-}
-.page-title .accent { color: var(--accent); }
-.page-sub {
-  font-size: 14px;
-  color: var(--ink-soft);
-  margin-top: 6px;
-  font-style: italic;
-}

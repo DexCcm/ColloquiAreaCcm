@@ -107,5 +107,6 @@
 .mock-btn:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
+}
 .mock-btn b { color: var(--ink); font-size: 14px; font-weight: 600; }
 .mock-btn small { color: var(--ink-mute); font-size: 11px; letter-spacing: .04em; }
