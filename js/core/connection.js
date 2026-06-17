@@ -3,15 +3,17 @@
  * -------------------------------------------------------------------
  * Bootstrap connessione Firebase + indicatore visuale di stato.
  *
+ * NOTA: window.firebaseAuth è un WRAPPER limitato di firebase-init.js
+ * (espone solo signInAnonymously + onAuthStateChanged). Per metodi
+ * come getRedirectResult / currentUser usiamo direttamente firebase.auth().
+ *
  * Ordine CRITICO:
  *   1. await firebaseReady
- *   2. await getRedirectResult()  ← se torno da Microsoft, qui Firebase
- *      processa il credenziale e currentUser diventa l'utente Microsoft.
- *      DEVE essere chiamato PRIMA di qualsiasi onAuthStateChanged listener,
- *      altrimenti l'utente anonimo cached vince e Microsoft viene perso.
- *   3. controllo currentUser:
- *      - se Microsoft attivo → lascio così
- *      - se anon cached     → lascio così
+ *   2. await firebase.auth().getRedirectResult()  ← processa il pending OAuth
+ *      PRIMA di qualsiasi listener, altrimenti l'anon cached vince.
+ *   3. firebase.auth().currentUser:
+ *      - se Microsoft attivo → ok
+ *      - se anon cached     → ok
  *      - se nessuno         → signInAnonymously (boot bridge per /users)
  */
 window.Connection = {
@@ -20,20 +22,20 @@ window.Connection = {
     try {
       await window.firebaseReady;
 
-      // 1) Captura eventuale credenziale Microsoft appena tornato da redirect.
-      //    Importante: questo è il primo touch di firebase.auth(), così
-      //    Firebase processa il pending OAuth PRIMA di settle su altri user.
+      // 1) Capturo eventuale credenziale Microsoft appena tornato da redirect.
       try {
-        const r = await window.firebaseAuth.getRedirectResult();
+        const r = await firebase.auth().getRedirectResult();
         if (r && r.user) {
           console.log('[Connection] redirect Microsoft capturato:', r.user.email);
+        } else {
+          console.log('[Connection] getRedirectResult vuoto');
         }
       } catch (err) {
-        console.warn('[Connection] getRedirectResult error:', err.code, err.message);
+        console.warn('[Connection] getRedirectResult error:', err.code || err.message);
       }
 
-      // 2) Stato finale auth dopo redirect processing
-      const existing = window.firebaseAuth.currentUser;
+      // 2) Stato finale auth
+      const existing = firebase.auth().currentUser;
       if (!existing) {
         const cred = await window.firebaseAuth.signInAnonymously();
         console.log('[Connection] boot bridge anonymous, uid:', cred.user.uid);
@@ -44,7 +46,7 @@ window.Connection = {
       }
 
       window.Storage.online = true;
-      const u0 = window.firebaseAuth.currentUser;
+      const u0 = firebase.auth().currentUser;
       const tag0 = (u0 && !u0.isAnonymous) ? (u0.email || u0.uid.slice(0, 8)) : 'anon';
       this.setStatus('connected', 'Online · ' + tag0);
 
