@@ -1,97 +1,71 @@
 console.log('[load] auth');
 /**
  * ColloquiTeam · core/auth.js
- * Auth con Firebase Authentication + Microsoft Identity Provider.
+ * Auth con MSAL.js (Azure AD) — versione standalone.
+ *
+ *   Auth.bootAuth()             ← boot, gestisce redirect e cache MSAL
+ *   Auth.loginWithMicrosoft()   ← loginRedirect verso Microsoft
+ *   Auth.loginByEmail(email)    ← matcha email → /users, apre sessione
+ *   Auth.login(slug)            ← scorciatoia mock (solo dev)
+ *   Auth.logout()
+ *   Auth.restoreSession()
  */
 window.Auth = {
-  _provider: null,
+  _msal: null,
 
   async bootAuth() {
-    if (typeof firebase === 'undefined' || !firebase.auth) {
-      console.warn('[Auth] firebase.auth non disponibile');
+    if (typeof msal === 'undefined') {
+      console.warn('[Auth] MSAL non caricato');
       return false;
     }
-    await window.firebaseReady;
+    if (!window.MSAL_CONFIG || window.MSAL_CONFIG.auth.clientId === 'REPLACE_ME') {
+      console.warn('[Auth] clientId Azure non configurato');
+      return false;
+    }
 
-    this._provider = new firebase.auth.OAuthProvider('microsoft.com');
-    this._provider.setCustomParameters({
-      tenant: 'e5f055d3-14a7-4c84-a94d-b04676abef8e',
-      prompt: 'select_account'
-    });
-    this._provider.addScope('email');
-    this._provider.addScope('profile');
-    console.log('[Auth] provider Microsoft inizializzato');
+    this._msal = new msal.PublicClientApplication(window.MSAL_CONFIG);
 
-    // 1) getRedirectResult: catpura il credenziale appena tornato da Microsoft.
-    //    Connection.init ha già aspettato lo stato iniziale, quindi qui è
-    //    semplicemente un fetch del risultato (può essere null se nessun redirect).
     try {
-      const result = await firebase.auth().getRedirectResult();
-      if (result && result.user) {
-        console.log('[Auth] redirect login OK:', result.user.email);
-      } else {
-        console.log('[Auth] nessun redirect result (visita iniziale o sessione cached)');
+      const response = await this._msal.handleRedirectPromise();
+      if (response && response.account) {
+        const email = this._extractEmail(response.account);
+        if (email) return this.loginByEmail(email);
+      }
+      const accounts = this._msal.getAllAccounts();
+      if (accounts.length > 0) {
+        const email = this._extractEmail(accounts[0]);
+        if (email) return this.loginByEmail(email);
       }
     } catch (err) {
-      console.error('[Auth] getRedirectResult error:', err.code, err.message);
-      if (err.code === 'auth/account-exists-with-different-credential') {
-        alert('Esiste già un account Firebase con questa email. Contatta admin.');
-      }
+      console.error('[Auth] handleRedirectPromise error:', err);
     }
-
-    // 2) Se c'è già un utente Microsoft (da redirect o da cache), bind subito.
-    const cur = firebase.auth().currentUser;
-    if (cur && !cur.isAnonymous && cur.email) {
-      console.log('[Auth] utente Microsoft attivo:', cur.email, '→ bind');
-      return await window.Auth._bindUserFromFirebase(cur);
-    }
-    console.log('[Auth] nessun utente Microsoft attivo, attendo click sul pulsante');
     return false;
   },
 
   loginWithMicrosoft: function () {
-    if (!this._provider) {
-      alert('Auth non inizializzato. Ricarica la pagina.');
+    if (!this._msal) {
+      alert('Microsoft login non disponibile. Verifica il clientId in msal-config.js');
       return;
     }
-    console.log('[Auth] avvio signInWithRedirect verso Microsoft');
-    firebase.auth().signInWithRedirect(this._provider)
+    this._msal.loginRedirect({ scopes: window.MSAL_LOGIN_SCOPES || ['openid', 'profile', 'email'] })
       .catch(function (err) {
-        console.error('[Auth] signInWithRedirect error:', err);
+        console.error('[Auth] loginRedirect error:', err);
         alert('Errore di login Microsoft: ' + (err.message || err.code));
       });
   },
 
-  _bindUserFromFirebase: async function (fbUser) {
-    const email = (fbUser.email || '').toLowerCase();
-    if (!email) {
-      console.error('[Auth] utente Firebase senza email');
-      await firebase.auth().signOut();
-      return false;
-    }
-
-    const u = window.Users && window.Users.findByEmail(email);
-    const slug = u && u.slug;
-    if (!slug) {
+  loginByEmail: function (email) {
+    const user = window.Users.findByEmail(email);
+    if (!user) {
       alert('Utente non autorizzato.\n\nEmail: ' + email + '\n\nNon presente in /users. Contatta admin.');
-      await firebase.auth().signOut();
+      if (this._msal) {
+        const acc = this._msal.getAllAccounts()[0];
+        if (acc) this._msal.logoutRedirect({ account: acc }).catch(function () {});
+      }
       return false;
     }
-
-    try {
-      const ref = window.firebaseDB.ref('uidIndex/' + fbUser.uid);
-      const snap = await window.firebaseDB.get(ref);
-      if (!snap.exists() || snap.val() !== slug) {
-        await window.firebaseDB.set(ref, slug);
-        console.log('[Auth] uidIndex claim:', fbUser.uid, '->', slug);
-      } else {
-        console.log('[Auth] uidIndex già claimato per', slug);
-      }
-    } catch (err) {
-      console.warn('[Auth] uidIndex claim non scritto:', err.code || err.message);
-    }
-
-    window.state.currentUser = u;
+    window.state.currentUser = user;
+    sessionStorage.setItem('colloquiteam_currentUser', user.slug);
     window.showApp();
     return true;
   },
@@ -100,33 +74,44 @@ window.Auth = {
     const user = window.Users.findBySlug(userSlug);
     if (!user) { console.error('[Auth] slug non trovato:', userSlug); return; }
     window.state.currentUser = user;
-    sessionStorage.setItem('colloquiteam_mockUser', userSlug);
+    sessionStorage.setItem('colloquiteam_currentUser', userSlug);
     window.showApp();
   },
 
-  logout: async function () {
+  logout: function () {
     window.state.currentUser = null;
-    sessionStorage.removeItem('colloquiteam_mockUser');
-    try {
-      if (firebase && firebase.auth && firebase.auth().currentUser) {
-        await firebase.auth().signOut();
+    sessionStorage.removeItem('colloquiteam_currentUser');
+    if (this._msal) {
+      const acc = this._msal.getAllAccounts()[0];
+      if (acc) {
+        this._msal.logoutRedirect({ account: acc }).catch(function () {
+          window.Auth._localLogoutUi();
+        });
+        return;
       }
-    } catch (err) {
-      console.error('[Auth] signOut error:', err);
     }
+    window.Auth._localLogoutUi();
+  },
+
+  _localLogoutUi: function () {
     location.hash = '';
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app-shell').hidden = true;
   },
 
   restoreSession: function () {
-    const dev = window.DEV_MODE === true || new URLSearchParams(location.search).get('dev') === '1';
-    if (!dev) return false;
-    const slug = sessionStorage.getItem('colloquiteam_mockUser');
+    const slug = sessionStorage.getItem('colloquiteam_currentUser');
     if (!slug) return false;
     const user = window.Users.findBySlug(slug);
-    if (!user) { sessionStorage.removeItem('colloquiteam_mockUser'); return false; }
+    if (!user) { sessionStorage.removeItem('colloquiteam_currentUser'); return false; }
     window.state.currentUser = user;
     return true;
+  },
+
+  _extractEmail: function (account) {
+    if (!account) return null;
+    return account.username ||
+      (account.idTokenClaims && (account.idTokenClaims.email || account.idTokenClaims.preferred_username)) ||
+      null;
   }
 };

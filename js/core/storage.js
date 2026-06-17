@@ -23,29 +23,53 @@ window.Storage = {
     return 'colloquiteam_cache/' + year + '/' + quarter + '/' + userSlug + '/' + tipo;
   },
 
+  /**
+   * Helper: decifra il blob se contiene il marker _enc e tipo === 'valutazione'.
+   * Per autovalutazione restituisce il dato così com'è (in chiaro).
+   */
+  async _maybeDecrypt(val, tipo) {
+    if (!val) return val;
+    if (tipo !== 'valutazione') return val;
+    if (!val._enc) return val;                  // legacy in chiaro → passthrough
+    if (!window.Crypto) {
+      console.warn('[Storage] blob cifrato ma Crypto non caricato');
+      return val;
+    }
+    const decrypted = await window.Crypto.decryptValutazione(val);
+    return decrypted || val;
+  },
+
+  /**
+   * Helper: cifra il blob valutazione prima del write. Per autovalutazione
+   * o se Crypto non c'è, ritorna il dato originale.
+   */
+  async _maybeEncrypt(data, tipo) {
+    if (!data) return data;
+    if (tipo !== 'valutazione') return data;
+    if (!window.Crypto) {
+      console.warn('[Storage] valutazione NON cifrata (Crypto non caricato)');
+      return data;
+    }
+    return await window.Crypto.encryptValutazione(data);
+  },
+
   async loadScheda(userSlug, year, quarter, tipo) {
     const path = this.schedaPath(userSlug, year, quarter, tipo);
     const cacheKey = this.cacheKey(userSlug, year, quarter, tipo);
 
-    // Tentativo Firebase con timeout. Firebase è la sorgente di verità:
-    // se risponde con successo (anche con null) ci fidiamo del risultato e
-    // ripuliamo la cache locale. Il fallback su localStorage scatta SOLO
-    // quando Firebase è irraggiungibile (errore/timeout) — non quando
-    // l'utente ha legittimamente cancellato il nodo lato DB.
     try {
       await window.firebaseReady;
       const snap = await Promise.race([
         window.firebaseDB.get(window.firebaseDB.ref(path)),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))
       ]);
-      const val = snap.val();
-      if (val) {
-        localStorage.setItem(cacheKey, JSON.stringify(val));
-        console.log('[Storage] load FB OK:', path);
+      const raw = snap.val();
+      if (raw) {
+        const val = await this._maybeDecrypt(raw, tipo);
+        localStorage.setItem(cacheKey, JSON.stringify(val));   // cache in chiaro
+        console.log('[Storage] load FB OK:', path, raw._enc ? '(decrypted)' : '');
         return val;
       }
-      // Nodo davvero assente su Firebase: invalida la cache locale
-      // (evita che dati cancellati lato DB "risorgano" dalla cache).
       localStorage.removeItem(cacheKey);
       console.log('[Storage] load FB nodo vuoto, cache pulita:', path);
       return this.emptyScheda();
@@ -63,14 +87,15 @@ window.Storage = {
     const path = this.schedaPath(userSlug, year, quarter, tipo);
     const cacheKey = this.cacheKey(userSlug, year, quarter, tipo);
 
-    // 1. write-through cache locale (sync, garantito)
+    // 1. cache locale in chiaro (più rapido, l'utente è già autorizzato)
     localStorage.setItem(cacheKey, JSON.stringify(data));
 
-    // 2. scrittura Firebase (async)
+    // 2. scrittura Firebase: SE tipo === 'valutazione', cifra prima
     try {
       await window.firebaseReady;
-      await window.firebaseDB.set(window.firebaseDB.ref(path), data);
-      console.log('[Storage] save FB OK:', path);
+      const payload = await this._maybeEncrypt(data, tipo);
+      await window.firebaseDB.set(window.firebaseDB.ref(path), payload);
+      console.log('[Storage] save FB OK:', path, payload._enc ? '(encrypted)' : '');
       return { ok: true, synced: true };
     } catch (err) {
       console.warn('[Storage] save FB fallito (dato in cache):', err.message, path);
@@ -95,7 +120,17 @@ window.Storage = {
     try {
       await window.firebaseReady;
       const snap = await window.firebaseDB.get(window.firebaseDB.ref('schede/' + year + '/' + quarter));
-      return snap.val() || {};
+      const raw = snap.val() || {};
+      // Decifro eventuali blob 'valutazione' per ogni utente
+      if (window.Crypto) {
+        for (const slug of Object.keys(raw)) {
+          if (raw[slug] && raw[slug].valutazione && raw[slug].valutazione._enc) {
+            const dec = await window.Crypto.decryptValutazione(raw[slug].valutazione);
+            if (dec) raw[slug].valutazione = dec;
+          }
+        }
+      }
+      return raw;
     } catch (err) {
       console.error('[Storage] readBranch fallito:', err.message);
       return null;
@@ -115,8 +150,8 @@ window.Storage = {
       proposteResponsabile: '',
       richiesteAzienda: '',
       richiesteColleghi: '',
-      ruota: {},               // legacy (V0.3: ora calcolata da Soft+Hard+KPI)
-      expectedRuota: {},       // V0.4: obiettivi di crescita (solo scheda valutazione)
+      ruota: {},
+      expectedRuota: {},
       dataColloquio: '',
       updatedAt: null,
       submittedAt: null,
