@@ -46,7 +46,8 @@ window.HARD_SKILLS_QUADIENT = [
   'Utilizzo AI',
   'SQL · gestione DB (SSMS)',
   'Accessibilità documenti — Inspire Designer + Tools',
-  'Qualità del codice (efficiente, descrittivo)'
+  'Qualità del codice (efficiente, descrittivo)',
+  'Lingua Inglese'
 ];
 
 window.HARD_SKILLS_PAPYRUS = [
@@ -60,7 +61,8 @@ window.HARD_SKILLS_PAPYRUS = [
   'Utilizzo AI',
   'Gestione DB (SSMS)',
   'Accessibilità',
-  'Qualità del codice (efficiente, descrittivo)'
+  'Qualità del codice (efficiente, descrittivo)',
+  'Lingua Inglese'
 ];
 
 window.KPI_QUADIENT = [
@@ -100,7 +102,7 @@ window.RUOTA_MACRO_QUADIENT = [
   { titolo: 'Autonomia & iniziativa',    voci: 'Proattività · Autonomia · Coinvolgimento' },
   { titolo: 'Quadient core',             voci: 'Inspire · Interactive · Evolve · Scaler' },
   { titolo: 'Scripting & integrazioni',  voci: 'Scripting Inspire · Extra' },
-  { titolo: 'Competenze trasversali',      voci: 'SQL · Accessibilità' },
+  { titolo: 'Competenze trasversali',      voci: 'SQL · Accessibilità · Business English' },
   { titolo: 'Qualità della consegna',    voci: 'Codice · Documentazione · Manutenibilità' }
 ];
 
@@ -111,7 +113,7 @@ window.RUOTA_MACRO_PAPYRUS = [
   { titolo: 'Autonomia & iniziativa',    voci: 'Proattività · Autonomia · Coinvolgimento' },
   { titolo: 'Papyrus core',              voci: 'Designer · Convertitore · Tools Vari' },
   { titolo: 'Scripting & integrazioni',  voci: 'Scripting Papyrus WebRepo · Extra' },
-  { titolo: 'Competenze trasversali',      voci: 'SQL · Accessibilità' },
+  { titolo: 'Competenze trasversali',      voci: 'SQL · Accessibilità · Business English' },
   { titolo: 'Qualità della consegna',    voci: 'Codice · Documentazione · Manutenibilità' }
 ];
 
@@ -167,7 +169,7 @@ window.RUOTA_MAPPING = {
     7,  // 10 Ottimizzazione dei workflow            → Qualità della consegna
     3   // 11 Approccio critico alle soluzioni cliente → Autonomia & iniziativa
   ],
-  // Hard Skills Quadient (11 voci)
+  // Hard Skills Quadient (12 voci)
   hard_quadient: [
     4,  // 0  Quadient Inspire Designer          → Quadient core
     4,  // 1  Quadient Inspire Interactive       → Quadient core
@@ -179,9 +181,10 @@ window.RUOTA_MAPPING = {
     6,  // 7  Utilizzo AI                        → Competenze trasversali
     6,  // 8  SQL · gestione DB (SSMS)           → Competenze trasversali
     6,  // 9  Accessibilità documenti — Inspire  → Competenze trasversali
-    7   // 10 Qualità del codice                 → Qualità della consegna
+    7,  // 10 Qualità del codice                 → Qualità della consegna
+    6   // 11 Lingua Inglese                     → Competenze trasversali
   ],
-  // Hard Skills Papyrus (11 voci)
+  // Hard Skills Papyrus (12 voci)
   hard_papyrus: [
     4,  // 0  Papyrus Designer                       → Papyrus core
     4,  // 1  Papyrus Webrepository                  → Papyrus core
@@ -193,35 +196,31 @@ window.RUOTA_MAPPING = {
     6,  // 7  Utilizzo AI                            → Competenze trasversali
     6,  // 8  Gestione DB (SSMS)                     → Competenze trasversali
     6,  // 9  Accessibilità                          → Competenze trasversali
-    7   // 10 Qualità del codice                     → Qualità della consegna
+    7,  // 10 Qualità del codice                     → Qualità della consegna
+    6   // 11 Lingua Inglese                         → Competenze trasversali
   ]
 };
 
 /**
  * Calcola i valori della ruota (8 macro-aree, scala 0-10) aggregando
- * i rating compilati nelle 3 schede (Soft, Hard, KPI).
+ * i rating compilati nelle 3 schede (Soft, Hard, KPI) tramite RUOTA_MAPPING.
  *
- * Conversione rating: 1-5 (Carente..Punto di forza) → 0-10
- *   1 → 0    2 → 2.5    3 → 5    4 → 7.5    5 → 10
- *
- * Per ogni macro-area, fa la media dei punteggi delle voci compilate
- * che le sono mappate. Le voci non compilate sono ignorate (no zero forzato).
- * Una macro senza voci compilate ritorna 0 (anello vuoto).
- *
- * @param {Object} scheda     - oggetto scheda con softSkills, hardSkills, kpi
+ * @param {Object} scheda     - oggetto scheda con softSkills/hardSkills/kpi
  * @param {string} variante   - 'quadient' | 'papyrus'
- * @returns {Array<number>}   - 8 valori arrotondati a 1 decimale
+ * @returns {Array<number>}   - 8 valori interi 0..10
  */
 window.computeRuotaFromScheda = function (scheda, variante) {
   const m = window.RUOTA_MAPPING;
   const hardMap = (variante === 'papyrus') ? m.hard_papyrus : m.hard_quadient;
   const buckets = [[], [], [], [], [], [], [], []];
 
-  const collect = (data, mapArr) => {
-    if (!data) return;
-    mapArr.forEach((macroIdx, voceIdx) => {
-      const r = data[voceIdx] != null ? data[voceIdx] : data[String(voceIdx)];
-      if (r != null && r >= 1 && r <= 5) {
+  const collect = (data, mapping) => {
+    if (!data || !mapping) return;
+    Object.keys(data).forEach(k => {
+      const idx = parseInt(k, 10);
+      const r = data[k];
+      const macroIdx = mapping[idx];
+      if (typeof macroIdx === 'number' && typeof r === 'number' && r >= 1 && r <= 5) {
         const score = (r - 1) * 2.5;   // 1..5  →  0, 2.5, 5, 7.5, 10
         buckets[macroIdx].push(score);
       }
