@@ -100,7 +100,7 @@ window.RUOTA_MACRO_QUADIENT = [
   { titolo: 'Autonomia & iniziativa',    voci: 'Proattività · Autonomia · Coinvolgimento' },
   { titolo: 'Quadient core',             voci: 'Inspire · Interactive · Evolve · Scaler' },
   { titolo: 'Scripting & integrazioni',  voci: 'Scripting Inspire · Extra' },
-  { titolo: 'Competenze trasversali',      voci: 'SQL · Accessibilità · Business English' },
+  { titolo: 'Competenze trasversali',      voci: 'SQL · Accessibilità' },
   { titolo: 'Qualità della consegna',    voci: 'Codice · Documentazione · Manutenibilità' }
 ];
 
@@ -111,7 +111,7 @@ window.RUOTA_MACRO_PAPYRUS = [
   { titolo: 'Autonomia & iniziativa',    voci: 'Proattività · Autonomia · Coinvolgimento' },
   { titolo: 'Papyrus core',              voci: 'Designer · Convertitore · Tools Vari' },
   { titolo: 'Scripting & integrazioni',  voci: 'Scripting Papyrus WebRepo · Extra' },
-  { titolo: 'Competenze trasversali',      voci: 'SQL · Accessibilità · Business English' },
+  { titolo: 'Competenze trasversali',      voci: 'SQL · Accessibilità' },
   { titolo: 'Qualità della consegna',    voci: 'Codice · Documentazione · Manutenibilità' }
 ];
 
