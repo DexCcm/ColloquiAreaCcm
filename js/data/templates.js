@@ -22,7 +22,7 @@ window.RATING_LABELS = ['Carente', 'Acerbo', 'Adeguato', 'Solido', 'Punto di for
 
 window.SOFT_SKILLS = [
   'Comunicazione (chiarezza, trasparenza)',
-  'Puntualità e rispetto delle scadenze',
+  'Puntualità e rispetto degli orari',
   'Coinvolgimento e partecipazione attiva',
   'Lavoro in Team e collaborazione',
   'Proattività (proporre, non solo eseguire)',
@@ -142,7 +142,7 @@ window.RUOTA_MAPPING = {
   // Soft Skills (identiche tra Quadient e Papyrus)
   soft: [
     0,  // 0  Comunicazione (chiarezza, trasparenza) → Comunicazione
-    1,  // 1  Puntualità e rispetto delle scadenze   → Disciplina personale
+    1,  // 1  Puntualità e rispetto degli orari   → Disciplina personale
     3,  // 2  Coinvolgimento e partecipazione attiva → Autonomia & iniziativa
     2,  // 3  Lavoro in Team e collaborazione        → Atteggiamento & relazioni
     3,  // 4  Proattività                            → Autonomia & iniziativa
