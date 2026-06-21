@@ -22,7 +22,7 @@ window.RATING_LABELS = ['Carente', 'Acerbo', 'Adeguato', 'Solido', 'Punto di for
 
 window.SOFT_SKILLS = [
   'Comunicazione (chiarezza, trasparenza)',
-  'Puntualità e rispetto degli orari',
+  'Puntualità',
   'Coinvolgimento e partecipazione attiva',
   'Lavoro in Team e collaborazione',
   'Proattività (proporre, non solo eseguire)',
@@ -40,7 +40,7 @@ window.HARD_SKILLS_QUADIENT = [
   'Quadient Inspire Interactive',
   'Quadient Inspire Scaler',
   'Quadient Dynamic Communication',
-  'Scripting Designer',
+  'Scripting Quadient',
   'Approval Process Interactive',
   'Inspire Evolve',
   'Utilizzo AI',
@@ -101,7 +101,7 @@ window.RUOTA_MACRO_QUADIENT = [
   { titolo: 'Atteggiamento & relazioni', voci: 'Autocontrollo · Lavoro in team · Ascolto' },
   { titolo: 'Autonomia & iniziativa',    voci: 'Proattività · Autonomia · Coinvolgimento' },
   { titolo: 'Quadient core',             voci: 'Inspire · Interactive · Evolve · Scaler' },
-  { titolo: 'Scripting & integrazioni',  voci: 'Scripting Inspire · Extra' },
+  { titolo: 'Scripting & integrazioni',  voci: 'Scripting Quadient' },
   { titolo: 'Competenze trasversali',      voci: 'SQL · Accessibilità · Business English' },
   { titolo: 'Qualità della consegna',    voci: 'Codice · Documentazione · Manutenibilità' }
 ];
@@ -142,7 +142,7 @@ window.RUOTA_MAPPING = {
   // Soft Skills (identiche tra Quadient e Papyrus)
   soft: [
     0,  // 0  Comunicazione (chiarezza, trasparenza) → Comunicazione
-    1,  // 1  Puntualità e rispetto degli orari   → Disciplina personale
+    1,  // 1  Puntualità   → Disciplina personale
     3,  // 2  Coinvolgimento e partecipazione attiva → Autonomia & iniziativa
     2,  // 3  Lavoro in Team e collaborazione        → Atteggiamento & relazioni
     3,  // 4  Proattività                            → Autonomia & iniziativa
@@ -175,8 +175,8 @@ window.RUOTA_MAPPING = {
     4,  // 1  Quadient Inspire Interactive       → Quadient core
     4,  // 2  Quadient Inspire Scaler            → Quadient core
     4,  // 3  Quadient Dynamic Communication     → Quadient core
-    5,  // 4  Scripting Designer                 → Scripting & integrazioni
-    5,  // 5  Scripting Interactive              → Scripting & integrazioni
+    5,  // 4  Scripting Quadient                 → Scripting & integrazioni
+    4,  // 5  Approval Process Interactive       → Quadient core
     4,  // 6  Inspire Evolve                     → Quadient core
     6,  // 7  Utilizzo AI                        → Competenze trasversali
     6,  // 8  SQL · gestione DB (SSMS)           → Competenze trasversali
@@ -221,7 +221,9 @@ window.computeRuotaFromScheda = function (scheda, variante) {
       const r = data[k];
       const macroIdx = mapping[idx];
       if (typeof macroIdx === 'number' && typeof r === 'number' && r >= 1 && r <= 5) {
-        const score = (r - 1) * 2.5;   // 1..5  →  0, 2.5, 5, 7.5, 10
+        // 1..5 → Carente 2 · Acerbo 4 · Adeguato 6 · Solido 8 · Punto di Forza 10
+        const SCALA = [2, 4, 6, 8, 10];
+        const score = SCALA[r - 1];
         buckets[macroIdx].push(score);
       }
     });
@@ -234,6 +236,6 @@ window.computeRuotaFromScheda = function (scheda, variante) {
   return buckets.map(arr => {
     if (arr.length === 0) return 0;
     const sum = arr.reduce((a, b) => a + b, 0);
-    return Math.round(sum / arr.length);
+    return Math.round((sum / arr.length) * 10) / 10;  // 1 decimale, per non appiattire i 6,5 / 9,5
   });
 };
