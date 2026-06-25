@@ -12,8 +12,11 @@ window.renderTeamStub = async function () {
   // Sorgente utenti: USERS_LIST (popolato da Users.loadAll all'avvio).
   // Fallback su MOCK_USERS solo se Firebase è inaccessibile.
   const source = window.USERS_LIST || window.MOCK_USERS || [];
+  // Membri del team: gli utenti dell'area + l'admin stesso (così vede
+  // anche la propria scheda colloquio comparativa).
   const team = source.filter(m =>
-    m.role === 'user' && (u.area === 'all' || m.area === u.area)
+    (m.role === 'user' || m.slug === u.slug) &&
+    (u.area === 'all' || m.area === u.area)
   );
   const main = document.getElementById('appMain');
   document.getElementById('saveStatus').style.display = 'none';
@@ -53,8 +56,11 @@ window.renderTeamStub = async function () {
         ? ' <span title="Scheda di confronto visibile all\'utente" style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sage);border:1px solid var(--sage);border-radius:6px;padding:3px 7px;vertical-align:middle;">✓ condivisa</span>'
         : '');
 
+    const selfTag = (r.m.slug === u.slug)
+      ? ' <span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:6px;padding:2px 6px;">tu</span>'
+      : '';
     return '<tr style="border-bottom:1px solid var(--rule-soft);">' +
-      '<td style="padding:14px 8px;"><b>' + r.m.displayName + '</b><br><small style="color:var(--ink-mute);">' + r.m.email + '</small></td>' +
+      '<td style="padding:14px 8px;"><b>' + r.m.displayName + '</b>' + selfTag + '<br><small style="color:var(--ink-mute);">' + r.m.email + '</small></td>' +
       '<td style="padding:14px 8px;">' + r.m.area + '</td>' +
       '<td style="padding:14px 8px;"><span class="scheda-stato ' + r.autoStato + '">' + lbl[r.autoStato] + '</span></td>' +
       '<td style="padding:14px 8px;"><span class="scheda-stato ' + r.valStato  + '">' + lbl[r.valStato]  + '</span></td>' +
