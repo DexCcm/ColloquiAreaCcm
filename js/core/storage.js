@@ -24,6 +24,52 @@ window.Storage = {
   },
 
   /**
+   * Nodo "meta" fratello di autovalutazione/valutazione.
+   * Path: /schede/{anno}/{quarter}/{slug}/meta
+   * Contiene la visibilità del colloquio verso l'utente:
+   *   { colloquioSharedAt: <ms>, sharedBy: <email admin> }
+   * Quando colloquioSharedAt è assente/null, la scheda di confronto
+   * resta privata dell'admin.
+   */
+  metaPath(userSlug, year, quarter) {
+    return 'schede/' + year + '/' + quarter + '/' + userSlug + '/meta';
+  },
+
+  async loadMeta(userSlug, year, quarter) {
+    try {
+      await window.firebaseReady;
+      const snap = await Promise.race([
+        window.firebaseDB.get(window.firebaseDB.ref(this.metaPath(userSlug, year, quarter))),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))
+      ]);
+      return snap.val() || {};
+    } catch (err) {
+      console.warn('[Storage] loadMeta fallito:', err.message, userSlug);
+      return {};
+    }
+  },
+
+  /**
+   * Abilita/revoca la visibilità del colloquio all'utente.
+   * shared=true  → scrive colloquioSharedAt (ora) e sharedBy.
+   * shared=false → azzera entrambi (update con null = rimozione chiave in RTDB).
+   */
+  async setColloquioShared(userSlug, year, quarter, shared, sharedBy) {
+    const ref = window.firebaseDB.ref(this.metaPath(userSlug, year, quarter));
+    try {
+      await window.firebaseReady;
+      await window.firebaseDB.update(ref, shared
+        ? { colloquioSharedAt: Date.now(), sharedBy: sharedBy || null }
+        : { colloquioSharedAt: null, sharedBy: null });
+      console.log('[Storage] colloquio shared=' + shared + ' :', userSlug);
+      return true;
+    } catch (err) {
+      console.error('[Storage] setColloquioShared fallito:', err.message);
+      return false;
+    }
+  },
+
+  /**
    * Helper: decifra il blob se contiene il marker _enc e tipo === 'valutazione'.
    * Per autovalutazione restituisce il dato così com'è (in chiaro).
    */
