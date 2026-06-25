@@ -48,6 +48,8 @@ window.renderHome = async function () {
   }
 
   // ─ user branch ─
+  const meta = await window.Storage.loadMeta(u.slug, window.state.year, window.state.quarter);
+  const colloquioShared = !!meta.colloquioSharedAt;
   const scheda = await window.Storage.loadScheda(u.slug, window.state.year, window.state.quarter, 'autovalutazione');
   const stato = scheda.submittedAt ? 'inviata' : (scheda.updatedAt ? 'bozza' : 'vuota');
   const statoLabel = { vuota: 'Non iniziata', bozza: 'In bozza', inviata: 'Inviata' }[stato];
@@ -90,5 +92,13 @@ window.renderHome = async function () {
           '<li>Durante il colloquio confronterete le due viste insieme.</li>' +
         '</ul>' +
       '</div>' +
+      (colloquioShared
+        ? '<div class="card home-card">' +
+            '<span class="scheda-stato inviata">colloquio</span>' +
+            '<h2>Scheda di confronto del colloquio</h2>' +
+            '<p>Il tuo responsabile ha condiviso la scheda usata durante il colloquio: confronto tra la tua autovalutazione e la valutazione, con la ruota delle performance.</p>' +
+            '<a href="#/colloquio/' + u.slug + '" class="btn-primary">Vedi la scheda di confronto &rarr;</a>' +
+          '</div>'
+        : '') +
     '</div>';
 };
