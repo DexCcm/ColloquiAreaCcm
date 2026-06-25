@@ -15,8 +15,31 @@ console.log('[load] colloquio');
       window.renderPlaceholder('Utente non trovato', 'Slug "' + targetSlug + '" non presente in /users.');
       return;
     }
-    if (me.role !== 'admin') { window.Router.navigate('/home'); return; }
-    if (me.area !== 'all' && me.area !== target.area && target.area !== 'all') {
+
+    document.getElementById('saveStatus').style.display = 'none';
+    document.getElementById('appMain').innerHTML =
+      '<div class="placeholder-page"><h2>Caricamento colloquio…</h2><p>Sto caricando autovalutazione e valutazione</p></div>';
+
+    const Y = window.state.year, Q = window.state.quarter;
+    const isAdmin = (me.role === 'admin');
+    const isOwner = (targetSlug === me.slug);
+
+    // Stato condivisione (chi può vedere il confronto)
+    const meta = await window.Storage.loadMeta(targetSlug, Y, Q);
+    const isShared = !!meta.colloquioSharedAt;
+
+    // ── Controllo accessi ──────────────────────────────────────────────
+    //  • admin: vede sempre (entro la propria area)
+    //  • utente proprietario: vede SOLO se l'admin ha condiviso il colloquio
+    //  • chiunque altro: respinto
+    if (!isAdmin) {
+      if (!isOwner) { window.Router.navigate('/home'); return; }
+      if (!isShared) {
+        window.renderPlaceholder('Colloquio non ancora disponibile',
+          'La scheda di confronto del colloquio non è ancora stata condivisa dal tuo responsabile. La vedrai qui non appena verrà resa visibile.');
+        return;
+      }
+    } else if (me.area !== 'all' && me.area !== target.area && target.area !== 'all') {
       window.renderPlaceholder('Accesso negato', 'Utente fuori dalla tua area di competenza.');
       return;
     }
@@ -27,11 +50,6 @@ console.log('[load] colloquio');
     const ruotaMacroList = isPapyrus ? window.RUOTA_MACRO_PAPYRUS : window.RUOTA_MACRO_QUADIENT;
     const variante       = isPapyrus ? 'PAPYRUS' : 'QUADIENT';
 
-    document.getElementById('saveStatus').style.display = 'none';
-    document.getElementById('appMain').innerHTML =
-      '<div class="placeholder-page"><h2>Caricamento colloquio…</h2><p>Sto caricando autovalutazione e valutazione</p></div>';
-
-    const Y = window.state.year, Q = window.state.quarter;
     const pair = await Promise.all([
       window.Storage.loadScheda(targetSlug, Y, Q, 'autovalutazione'),
       window.Storage.loadScheda(targetSlug, Y, Q, 'valutazione')
@@ -46,16 +64,25 @@ console.log('[load] colloquio');
     else if (!autoCompiled)            warning = "L'utente non ha ancora compilato la sua autovalutazione.";
     else if (!valCompiled)             warning = 'Tu non hai ancora compilato la valutazione responsabile.';
 
+    const backLink = isAdmin
+      ? '<a href="#/team" class="nav-link" style="padding:0;font-size:13px;">&larr; Torna al team</a>'
+      : '<a href="#/home" class="nav-link" style="padding:0;font-size:13px;">&larr; Torna alla home</a>';
+
+    const titlePrefix = isAdmin
+      ? 'Vista <span class="accent">colloquio</span> &mdash; '
+      : 'Scheda di <span class="accent">confronto</span> &mdash; ';
+
     document.getElementById('appMain').innerHTML =
       '<div class="page-head">' +
-        '<div style="margin-bottom:8px;"><a href="#/team" class="nav-link" style="padding:0;font-size:13px;">&larr; Torna al team</a></div>' +
+        '<div style="margin-bottom:8px;">' + backLink + '</div>' +
         '<div class="page-eyebrow">Colloquio · ' + Y + ' · ' + Q + ' · ' + target.displayName + '</div>' +
-        '<h1 class="page-title">Vista <span class="accent">colloquio</span> &mdash; ' + target.displayName + '</h1>' +
+        '<h1 class="page-title">' + titlePrefix + target.displayName + '</h1>' +
         '<p class="page-sub">' +
           '<span style="display:inline-block;background:var(--accent);color:white;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-right:8px;">' + variante + '</span>' +
           target.ruolo + ' · confronto autovalutazione e valutazione responsabile' +
         '</p>' +
       '</div>' +
+      (isAdmin ? renderShareBar(target, isShared, meta) : '') +
       '<div class="colloquio-legend">' +
         '<span class="lg-item"><span class="lg-swatch auto"></span>Autovalutazione (' + target.displayName + ')</span>' +
         '<span class="lg-item"><span class="lg-swatch val"></span>Valutazione responsabile</span>' +
@@ -88,10 +115,49 @@ console.log('[load] colloquio');
       ]) +
       renderRuotaSection() +
       '<p style="text-align:center;color:var(--ink-mute);font-size:13px;margin-top:24px;">' +
-        "Questa vista è privata dell'admin. L'utente non vede mai la valutazione responsabile." +
+        (isAdmin
+          ? "Usa il pulsante in alto per rendere questa scheda di confronto visibile all'utente al termine del colloquio."
+          : "Questa è la scheda di confronto usata durante il colloquio, condivisa dal tuo responsabile in sola lettura.") +
       '</p>';
 
     setTimeout(function () { buildRadarChart(auto, val, ruotaMacroList); }, 50);
+  };
+
+  // ── Barra di condivisione (solo admin) ───────────────────────────────
+  function renderShareBar(target, isShared, meta) {
+    const wrap = 'display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;' +
+      'padding:14px 18px;border-radius:10px;margin:4px 0 20px;border:1px solid ';
+    if (isShared) {
+      const when = new Date(meta.colloquioSharedAt).toLocaleString('it-IT');
+      const by   = meta.sharedBy ? ' da ' + meta.sharedBy : '';
+      return '<div style="' + wrap + 'var(--sage);background:rgba(61,107,82,0.10);">' +
+        '<div><b style="color:var(--sage);">✓ Visibile all\'utente</b><br>' +
+          '<small style="color:var(--ink-mute);">Condivisa il ' + when + by +
+          '. ' + target.displayName + ' la vede in sola lettura dalla sua home.</small></div>' +
+        '<button class="btn-secondary" onclick="toggleColloquioShare(\'' + target.slug + '\', false)">Revoca visibilità</button>' +
+      '</div>';
+    }
+    return '<div style="' + wrap + 'var(--rule-soft);background:var(--accent-soft);">' +
+      '<div><b>Scheda non ancora condivisa</b><br>' +
+        '<small style="color:var(--ink-mute);">Per ora solo tu vedi questo confronto. ' +
+        'Rendilo visibile a ' + target.displayName + ' al termine del colloquio.</small></div>' +
+      '<button class="btn-primary" onclick="toggleColloquioShare(\'' + target.slug + '\', true)">Rendi visibile all\'utente</button>' +
+    '</div>';
+  }
+
+  // Handler globale del toggle condivisione
+  window.toggleColloquioShare = async function (slug, share) {
+    const me = window.state.currentUser;
+    if (!me || me.role !== 'admin') return;
+    const ok = await window.Storage.setColloquioShared(
+      slug, window.state.year, window.state.quarter, share, me.email
+    );
+    if (ok) {
+      window.toast(share ? "Scheda resa visibile all'utente" : 'Visibilità revocata');
+      window.renderColloquio(slug);
+    } else {
+      window.toast('Operazione non riuscita');
+    }
   };
 
   function renderCompareSection(num, title, desc, items, autoData, valData) {
