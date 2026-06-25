@@ -20,14 +20,16 @@ window.renderTeamStub = async function () {
   main.innerHTML = '<div class="placeholder-page"><h2>Caricamento team…</h2></div>';
 
   const rows = await Promise.all(team.map(async m => {
-    const [sch, valSch] = await Promise.all([
+    const [sch, valSch, meta] = await Promise.all([
       window.Storage.loadScheda(m.slug, window.state.year, window.state.quarter, 'autovalutazione'),
-      window.Storage.loadScheda(m.slug, window.state.year, window.state.quarter, 'valutazione')
+      window.Storage.loadScheda(m.slug, window.state.year, window.state.quarter, 'valutazione'),
+      window.Storage.loadMeta(m.slug, window.state.year, window.state.quarter)
     ]);
     return {
       m,
       autoStato: sch.submittedAt    ? 'inviata' : (sch.updatedAt    ? 'bozza' : 'vuota'),
-      valStato:  valSch.submittedAt ? 'inviata' : (valSch.updatedAt ? 'bozza' : 'vuota')
+      valStato:  valSch.submittedAt ? 'inviata' : (valSch.updatedAt ? 'bozza' : 'vuota'),
+      shared:    !!meta.colloquioSharedAt
     };
   }));
 
@@ -46,7 +48,10 @@ window.renderTeamStub = async function () {
     const valutaBtn =
       '<a href="#/valuta/' + r.m.slug + '" class="btn-secondary" style="padding:6px 14px; font-size:12px;">Valuta</a>';
     const colloquioBtn =
-      '<a href="#/colloquio/' + r.m.slug + '" class="btn-secondary" style="padding:6px 14px; font-size:12px; background:var(--accent-soft); color:var(--accent); border-color:var(--accent);">Colloquio</a>';
+      '<a href="#/colloquio/' + r.m.slug + '" class="btn-secondary" style="padding:6px 14px; font-size:12px; background:var(--accent-soft); color:var(--accent); border-color:var(--accent);">Colloquio</a>' +
+      (r.shared
+        ? ' <span title="Scheda di confronto visibile all\'utente" style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sage);border:1px solid var(--sage);border-radius:6px;padding:3px 7px;vertical-align:middle;">✓ condivisa</span>'
+        : '');
 
     return '<tr style="border-bottom:1px solid var(--rule-soft);">' +
       '<td style="padding:14px 8px;"><b>' + r.m.displayName + '</b><br><small style="color:var(--ink-mute);">' + r.m.email + '</small></td>' +
