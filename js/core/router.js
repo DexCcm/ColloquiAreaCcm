@@ -52,7 +52,9 @@ window.Router = {
         else window.Router.navigate('/home');
         break;
       case 'colloquio':
-        if (isAdmin && args[0]) window.renderColloquio(args[0]);
+        // Accesso deciso dentro renderColloquio: admin sempre, utente solo
+        // sulla propria scheda e solo se l'admin l'ha condivisa.
+        if (args[0]) window.renderColloquio(args[0]);
         else window.Router.navigate('/home');
         break;
       default:
