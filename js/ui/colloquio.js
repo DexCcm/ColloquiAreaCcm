@@ -95,10 +95,14 @@ console.log('[load] colloquio');
       renderCompareSection('02', 'Hard Skills · competenze tecniche',
         'Stack tecnologico e capacità tecniche specifiche del ruolo.',
         hardSkillsList, auto.hardSkills, val.hardSkills) +
+      renderTextNote('Note utente · Hard Skills',
+        auto.statoAvanzamentoHard, val.statoAvanzamentoHard) +
       renderEpisodi(auto, val) +
       renderCompareSection('03', 'Skill Operative · KPI Performance',
         'Organizzazione, gestione del tempo e produttività.',
         kpiList, auto.kpi, val.kpi) +
+      renderTextNote('Note utente · KPI',
+        auto.statoAvanzamentoKpi, val.statoAvanzamentoKpi) +
       renderFreeSection('04', 'Obiettivi individuali per il trimestre',
         "Compilati dall'utente in autovalutazione", [
           { label: 'Obiettivo prioritario', hint: 'Crescita professionale', value: auto.obiettivoPrioritario },
@@ -200,11 +204,20 @@ console.log('[load] colloquio');
   }
 
   function renderEpisodi(auto, val) {
-    const a = (auto.episodiNote || '').trim();
-    const v = (val.episodiNote  || '').trim();
+    return renderTextNote('Note utente · Soft Skills', auto.episodiNote, val.episodiNote);
+  }
+
+  /**
+   * Stampa un testo libero compilato da utente (auto) e/o responsabile (val).
+   * Riusato per: episodi note (sez. 01), stato avanzamento Hard (02), KPI (03).
+   * Se entrambi i testi sono vuoti non renderizza nulla.
+   */
+  function renderTextNote(title, autoText, valText) {
+    const a = (autoText || '').trim();
+    const v = (valText  || '').trim();
     if (!a && !v) return '';
     return '<section class="compare-section">' +
-      '<div class="section-head"><span class="section-title">Episodi concreti · note</span></div>' +
+      '<div class="section-head"><span class="section-title">' + title + '</span></div>' +
       (a ? '<div class="free-text-block"><span class="ft-label" style="color:var(--auto-color);">📘 Utente</span><div class="ft-content">' + escapeHtml(a) + '</div></div>' : '') +
       (v ? '<div class="free-text-block"><span class="ft-label" style="color:var(--val-color);">📕 Responsabile</span><div class="ft-content" style="border-left-color:var(--val-color);">' + escapeHtml(v) + '</div></div>' : '') +
     '</section>';
